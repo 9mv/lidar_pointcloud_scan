@@ -3,9 +3,9 @@
 <package format="3">
   <name>lidar_pointcloud_scan</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="aleix@todo.todo">aleix</maintainer>
-  <license>TODO: License declaration</license>
+  <description>Tools to convert 2D LiDAR data to 3D using a motor to rotate the LiDAR.</description>
+  <maintainer email="aleixmateumartinez@gmail.com">aleixmateumartinez@gmail.com</maintainer>
+  <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
