@@ -7,18 +7,38 @@ endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
-# uncomment the following section in order to fill in
-# further dependencies manually.
-# find_package(<dependency> REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+
+set(msg_files
+  "msg/Angle.msg"
+)
+
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+)
+
+ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp)
+ament_target_dependencies(lidar_rotation_motor rclcpp)
+
+install(TARGETS 
+    lidar_rotation_motor
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+include_directories(include)
+
 target_include_directories(lidar_rotation_motor PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
 target_compile_features(lidar_rotation_motor PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
-install(TARGETS lidar_rotation_motor
-  DESTINATION lib/${PROJECT_NAME})
+rosidl_get_typesupport_target(cpp_typesupport_target
+  ${PROJECT_NAME} rosidl_typesupport_cpp)
+
+target_link_libraries(lidar_rotation_motor "${cpp_typesupport_target}")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
