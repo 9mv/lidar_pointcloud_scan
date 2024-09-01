@@ -23,8 +23,12 @@ ament_export_dependencies(rosidl_default_runtime)
 add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp)
 ament_target_dependencies(lidar_rotation_motor rclcpp)
 
+add_executable(point_cloud_transformer src/point_cloud_transformer.cpp)
+ament_target_dependencies(point_cloud_transformer rclcpp)
+
 install(TARGETS 
     lidar_rotation_motor
+    point_cloud_transformer
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -35,10 +39,16 @@ target_include_directories(lidar_rotation_motor PUBLIC
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
 target_compile_features(lidar_rotation_motor PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+target_include_directories(point_cloud_transformer PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
+target_compile_features(point_cloud_transformer PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 target_link_libraries(lidar_rotation_motor "${cpp_typesupport_target}")
+target_link_libraries(point_cloud_transformer "${cpp_typesupport_target}")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
