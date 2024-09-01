@@ -1,6 +1,3 @@
-#include <memory>
-
-#include "rclcpp/rclcpp.hpp"
 #include "lidar_pointcloud_scan/point_cloud_transformer.h"
 
 PointCloudTransformer::PointCloudTransformer()
