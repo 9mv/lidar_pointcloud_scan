@@ -8,6 +8,7 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 set(msg_files
@@ -21,10 +22,15 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 ament_export_dependencies(rosidl_default_runtime)
 
 add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp)
-ament_target_dependencies(lidar_rotation_motor rclcpp)
+ament_target_dependencies(lidar_rotation_motor 
+  rclcpp
+  )
 
 add_executable(point_cloud_transformer src/point_cloud_transformer.cpp)
-ament_target_dependencies(point_cloud_transformer rclcpp)
+ament_target_dependencies(point_cloud_transformer 
+  rclcpp
+  sensor_msgs
+  )
 
 install(TARGETS 
     lidar_rotation_motor
