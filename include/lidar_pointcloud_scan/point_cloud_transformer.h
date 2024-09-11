@@ -36,6 +36,9 @@ public:
 
 // Private methods
 private:
+    /*
+    * Get parameters for the node
+    */
     void initParameters();
 
     // Point Cloud processing
@@ -48,7 +51,17 @@ private:
     void lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan);
 
     // Init/Stop scan callbacks
+    /*
+    * Callback to initialize the scanning process.
+    * @todo: implement node to initiate and stop/cancel scanning process. This callback will be called when the action/service/topic is triggered.
+    */
     void initScanCallback ();
+
+    /*
+    * Callback to stop the scanning process.
+    * @param reason: reason for stopping the scan -> @todo: think about this. The reason will be passed as a member of the message type of the topic or will it be passed as argument?
+    * @todo: implement node to initiate and stop/cancel scanning process. This callback will be called when the action/service/topic is triggered.
+    */
     void stopScanCallback (EndScanReason reason);
 
 // Private attributes
@@ -67,7 +80,7 @@ private:
   bool reset_ = false;
 
   // Current angle of the lidar
-  int currentAngle_ = -90.0;
+  float currentAngle_ = -90.0;
 
   // Append mode will accumulate the point cloud
   // instead of replacing it

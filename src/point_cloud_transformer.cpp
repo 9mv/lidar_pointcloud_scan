@@ -68,12 +68,16 @@ void PointCloudTransformer::stopScanCallback (EndScanReason reason)
 
 void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::msg::Angle::SharedPtr msg)
 {
-  //LOG_INFO(this, "New angle received: '%d'", msg->angle);
-  currentAngle_ = msg->angle;
-  if (currentAngle_ == 90)
+  if (inScan_)
   {
-    stopScanCallback(EndScanReason::END);
+    LOG_INFO(this, "New angle: '%f'", msg->angle);
+    currentAngle_ = msg->angle;
+    if (currentAngle_ == 90)
+    {
+      stopScanCallback(EndScanReason::END);
+    }
   }
+
 }
 
 void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan)

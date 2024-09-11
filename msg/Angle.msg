@@ -1,1 +1,1 @@
-int8 angle
+float32 angle
