@@ -32,6 +32,10 @@ ament_target_dependencies(point_cloud_transformer
   sensor_msgs
   )
 
+install(DIRECTORY launch rviz
+  DESTINATION share/${PROJECT_NAME}
+)
+
 install(TARGETS 
     lidar_rotation_motor
     point_cloud_transformer

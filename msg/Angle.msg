@@ -1,1 +1,1 @@
-uint8 angle
+int8 angle

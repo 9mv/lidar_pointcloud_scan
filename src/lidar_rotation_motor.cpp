@@ -14,14 +14,14 @@ LidarRotationMotor::LidarRotationMotor()
     return;
   }
 
-  timer_ = this->create_wall_timer(500ms, std::bind(&LidarRotationMotor::timer_callback, this));
+  timer_ = this->create_wall_timer(250ms, std::bind(&LidarRotationMotor::timer_callback, this));
 }
 
 void LidarRotationMotor::timer_callback()
 {
   auto message = lidar_pointcloud_scan::msg::Angle();
   message.angle = currentAngle_;
-  LOG_INFO(this, "publishing angle: '%d'", message.angle);
+  //LOG_INFO(this, "publishing angle: '%d'", message.angle);
   publisher_->publish(message);
   updateAngle();
 }

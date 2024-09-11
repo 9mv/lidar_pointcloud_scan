@@ -13,8 +13,8 @@ using namespace std::chrono_literals;
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
 
-const int MIN_ANGLE = 0;
-const int MAX_ANGLE = 180; //180;
+const int MIN_ANGLE = -90;
+const int MAX_ANGLE = 90;
 
 class LidarRotationMotor : public rclcpp::Node
 {

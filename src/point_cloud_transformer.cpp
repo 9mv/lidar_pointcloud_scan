@@ -3,6 +3,7 @@
 PointCloudTransformer::PointCloudTransformer()
 : Node("point_cloud_transformer")
 {
+  initParameters();
   angleSubscription_ = this->create_subscription<lidar_pointcloud_scan::msg::Angle>(
       "tilt_angle", 10, 
       std::bind(&PointCloudTransformer::angleUpdateCallback, this, std::placeholders::_1));
@@ -12,34 +13,212 @@ PointCloudTransformer::PointCloudTransformer()
       std::bind(&PointCloudTransformer::lidarScanCallback, this, std::placeholders::_1));
 
   pointCloudPublisher_ = this->create_publisher<PointCloud2>("scan_3d", 10);
+  ////////////////////////////////////////
+  // @todo -> remove once method to start/stop is implemented
+  // this way, the scan is always on
+  initScanCallback();
+  ////////////////////////////////////////
+}
 
+void PointCloudTransformer::initParameters ()
+{
+  LOG_INFO(this, "Initializing parameters");
+
+  // Declare parameters
+  this->declare_parameter<bool>("appendMode", false);
+  this->declare_parameter<int>("processingType", 0);
+
+  // Get parameters
+  this->get_parameter<bool>("appendMode", appendMode_);
+  LOG_INFO(this, "appendMode: %s", appendMode_ ? "true" : "false");
+
+  int processingType;
+  this->get_parameter_or<int>("processingType", processingType, 0);
+  processingType_ = static_cast<ProcessingType>(processingType);
+  LOG_INFO(this, "processingType: %d", processingType_);
+}
+
+void PointCloudTransformer::initScanCallback ()
+{
+  LOG_INFO(this, "Initializing scanning process");
+  inScan_ = true;
+}
+
+void PointCloudTransformer::stopScanCallback (EndScanReason reason)
+{
+  if (!inScan_)
+  {
+    return;
+  }
+  LOG_INFO(this, "End scanning process");
+
+  if (reason == EndScanReason::END)
+  {
+    LOG_INFO(this, "Scan COMPLETE");
+    
+    // @todo -> necessito notificar a algú que ha acabat i com?
+  }
+  else if (reason == EndScanReason::CANCEL)
+  {
+    LOG_INFO(this, "Scan STOPPED");
+    reset_ = true;
+  }
+  inScan_ = false;
 }
 
 void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::msg::Angle::SharedPtr msg)
 {
-  LOG_INFO(this, "New angle received: '%d'", msg->angle);
+  //LOG_INFO(this, "New angle received: '%d'", msg->angle);
   currentAngle_ = msg->angle;
+  if (currentAngle_ == 90)
+  {
+    stopScanCallback(EndScanReason::END);
+  }
 }
 
 void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan)
 {
   int count = scan->scan_time / scan->time_increment;
 
-  updatePointCloud(scan);
+  //LOG_INFO(this, "New laserscan received: %s[%d]. Adjusting with processingType %d", scan->header.frame_id.c_str(), count, processingType_);
 
-  LOG_INFO(this, "New laserscan received: %s[%d]:", scan->header.frame_id.c_str(), count);
+  if (processingType_ == POINT_CLOUD_PROCESSING)
+  {
+    updatePointCloud(scan);
+  }
 }
 
 void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan)
 {
-  // TODO
-  publishPointCloud();
+  //LOG_INFO(this, "Updating point cloud");
+  std::vector<PointCloudPoint> points;
+  float motorAngleInRad = DEG2RAD(currentAngle_);
+  float angleMin = lidar_scan->angle_min;
+  float angleIncrement = lidar_scan->angle_increment;
+
+  // Iterate each of the points given by the scan
+  for (size_t i = 0; i < lidar_scan->ranges.size(); i++)
+  {
+    float range = lidar_scan->ranges[i];
+
+    // Check valid range
+    if (std::isfinite(range) && range >= lidar_scan->range_min && range <= lidar_scan->range_max)
+    {
+      // Current angle is initial angle + angle corresponding to i point
+      float angle = angleMin + i * angleIncrement;
+
+      // Get x and y using basic trigonometry given the angle of scan and radius
+      float x = range * std::cos(angle);
+      float y = range * std::sin(angle);
+
+      // Adjust x and calculate z based on the motor angle (repeat previous step with extra axis and angle)
+      float adjusted_x = x * std::cos(motorAngleInRad);
+      float z = x * std::sin(motorAngleInRad);
+      
+      PointCloudPoint point;
+      point.x = adjusted_x;
+      point.y = y;
+      point.z = z;
+
+      points.push_back(point);
+    }
+  }
+
+  //LOG_INFO(this, "Number of valid points: %zu", points.size());
+
+  // Create and populate the PointCloud2 message
+  PointCloud2 pointCloud2;
+  pointCloud2.header = lidar_scan->header;
+  pointCloud2.height = 1;
+  pointCloud2.width = points.size();
+
+  sensor_msgs::PointCloud2Modifier modifier(pointCloud2);
+  modifier.setPointCloud2Fields(3,
+      "x", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "y", 1, sensor_msgs::msg::PointField::FLOAT32,
+      "z", 1, sensor_msgs::msg::PointField::FLOAT32);
+
+  modifier.resize(points.size());
+
+  sensor_msgs::PointCloud2Iterator<float> iter_x(pointCloud2, "x");
+  sensor_msgs::PointCloud2Iterator<float> iter_y(pointCloud2, "y");
+  sensor_msgs::PointCloud2Iterator<float> iter_z(pointCloud2, "z");
+
+  for (const auto& point : points)
+  {
+    *iter_x = point.x;
+    *iter_y = point.y;
+    *iter_z = point.z;
+    ++iter_x; ++iter_y; ++iter_z;
+  }
+  //LOG_INFO(this, "Final cumulative PointCloud2 size: %zu", cumulativePointCloud_.width);
+
+  if (inScan_)
+  {
+    if (!reset_ && appendMode_)
+    {
+      // Append pointCloud2 to cumulativePointCloud_
+      appendToCumulativePointCloud(pointCloud2);
+    }
+    else
+    {
+      //LOG_INFO(this, "Overriding current PointCloud2");
+      cumulativePointCloud_ = pointCloud2;
+      reset_ = false;
+    }
+    publishPointCloud();
+  }
+}
+
+void PointCloudTransformer::appendToCumulativePointCloud(const PointCloud2& pointCloud2)
+{
+  //LOG_INFO(this, "Appending to existing PointCloud2");
+
+  if (cumulativePointCloud_.width == 0 || cumulativePointCloud_.height == 0)
+  {
+    cumulativePointCloud_ = pointCloud2;
+    return;
+  }
+
+  if (pointCloud2.point_step != cumulativePointCloud_.point_step)
+  {
+    return;
+  }
+
+  // Update widths of PC2
+  size_t oldWidth = cumulativePointCloud_.width;
+  uint32_t newWidth = oldWidth + pointCloud2.width;
+
+  size_t cumulativePoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
+  size_t appendPoints = pointCloud2.width * pointCloud2.height;
+
+  cumulativePointCloud_.data.resize(cumulativePointCloud_.data.size() + pointCloud2.data.size());
+
+  std::copy(pointCloud2.data.begin(), pointCloud2.data.end(), cumulativePointCloud_.data.begin() + cumulativePointCloud_.point_step * cumulativePoints);
+
+  sensor_msgs::PointCloud2Modifier pclModifier(cumulativePointCloud_);
+  pclModifier.resize(newWidth);
+
+    // If the point clouds are unorganized (height = 1), keep height as 1
+  if (cumulativePointCloud_.height == 1 && pointCloud2.height == 1)
+  {
+    cumulativePointCloud_.height = 1;
+  }
+  else
+  {
+    // If the point clouds are organized, sum their heights and ensure correct width
+    cumulativePointCloud_.height += pointCloud2.height;
+  }
+
+  // Optionally, update the timestamp of the target cloud to the latest one
+  cumulativePointCloud_.header.stamp = pointCloud2.header.stamp;
+
 }
 
 Result PointCloudTransformer::publishPointCloud()
 {
   Result result = RESULT_OK;
-  LOG_INFO(this, "publishing new pointCloud");
+  //LOG_INFO(this, "publishing new pointCloud");
   pointCloudPublisher_->publish(cumulativePointCloud_);
 
   return result;

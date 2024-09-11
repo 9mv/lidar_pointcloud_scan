@@ -1,0 +1,35 @@
+<launch>
+  <!-- Launch Arguments -->
+  <arg name="channel_type" default="serial" description="Specifying channel type of lidar"/>
+  <arg name="serial_port" default="/dev/ttyUSB0" description="Specifying usb port to connected lidar"/>
+  <arg name="serial_baudrate" default="115200" description="Specifying usb port baudrate to connected lidar"/>
+  <arg name="frame_id" default="laser" description="Specifying frame_id of lidar"/>
+  <arg name="inverted" default="false" description="Specifying whether or not to invert scan data"/>
+  <arg name="angle_compensate" default="true" description="Specifying whether or not to enable angle_compensate of scan data"/>
+  <arg name="scan_mode" default="Sensitivity" description="Specifying scan mode of lidar"/>
+  <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
+  <arg name="processingType" default="0"/>
+
+  <!-- LiDAR -->
+  <node pkg="sllidar_ros2" exec="sllidar_node" name="sllidar_node" output="screen">
+    <param name="channel_type" value="$(var channel_type)"/>
+    <param name="serial_port" value="$(var serial_port)"/>
+    <param name="serial_baudrate" value="$(var serial_baudrate)"/>
+    <param name="frame_id" value="$(var frame_id)"/>
+    <param name="inverted" value="$(var inverted)"/>
+    <param name="angle_compensate" value="$(var angle_compensate)"/>
+    <param name="scan_mode" value="$(var scan_mode)"/>
+  </node>
+
+  <!-- rviz -->
+  <node pkg="rviz2" exec="rviz2" name="rviz2" output="screen" args="-d $(find-pkg-share lidar_pointcloud_scan)/rviz/sllidar_ros2.rviz" />
+
+  <!-- Tilt motor -->
+  <node pkg="lidar_pointcloud_scan" exec="lidar_rotation_motor" name="lidar_rotation_motor" output="screen"/>
+
+  <!-- Point Cloud Transformer -->
+  <node pkg="lidar_pointcloud_scan" exec="point_cloud_transformer" name="point_cloud_transformer" output="screen">
+    <param name="appendMode" value="$(var appendMode)"/>
+    <param name="processingType" value="$(var processingType)"/>
+  </node>
+</launch>
