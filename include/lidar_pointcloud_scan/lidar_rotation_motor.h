@@ -7,14 +7,23 @@
 #include "lidar_pointcloud_scan/msg/angle.hpp"
 #include "lidar_pointcloud_scan/types.h"
 
+#include "PCA9685/PCA9685.h"
 
 using namespace std::chrono_literals;
 
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
 
-const int MIN_ANGLE = -90.0;
-const int MAX_ANGLE = 90.0;
+constexpr float MIN_ANGLE = -90.0;
+constexpr float MAX_ANGLE = 90.0;
+
+// 2048 is angle 0º
+constexpr uint32_t MIN_PWM_VALUE = 0;
+constexpr uint32_t MAX_PWM_VALUE = 4095;
+
+constexpr int I2C_BUS = 1;
+constexpr int PCA9685_ADDRESS = 0x40;
+
 
 class LidarRotationMotor : public rclcpp::Node
 {
@@ -27,6 +36,12 @@ private:
     * Get parameters for the node
     */
     void initParameters ();
+
+    /*
+    * Initializing motor actions
+    * @return Result of the operation
+    */
+    Result initializeMotor();
 
     /*
     * Timer callback to publish the angle
@@ -44,11 +59,19 @@ private:
     */
     Result resetAngle();
 
+
+
     /*
-    * Initializing motor actions
+    * Get the PWM to turn motor to the given angle
+    * @return uint32_t PWM value 
+    */
+    uint32_t getPWMValueFromAngle(float angle);
+
+    /*
+    * Move the rotation motor
     * @return Result of the operation
     */
-    Result initializeMotor();
+    Result moveMotor(uint32_t pwm);
 
 // Private attributes
 private: 
@@ -65,8 +88,15 @@ private:
 
     // Attributes for fake mode
     bool motorFakeMode_ = false;
-    float fakeAngleIncrement_ = 1;
+    
+    // Increment of the angle of the LiDAR tilt motor
+    float angleIncrement_ = 1;
 
     // Angle increment period in ms
     float incrementPeriod_ = 250.0;
+
+    PCA9685* pwmController_ = nullptr;
+
+    //@todo -> temporal to test. DELETE
+    bool go = true;
 };

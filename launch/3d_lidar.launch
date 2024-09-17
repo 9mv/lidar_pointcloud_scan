@@ -11,8 +11,8 @@
 
   <!-- lidar_rotation_motor -->
   <arg name="incrementPeriod" default="62.5"/>
-  <arg name="motorFakeMode" default="true"/>
-  <arg name="fakeAngleIncrement" default="0.5"/>
+  <arg name="angleIncrement" default="0.5"/>
+  <arg name="motorFakeMode" default="false"/>
 
   <!-- point_cloud_transformer -->
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
@@ -36,9 +36,9 @@
 
   <!-- lidar_rotation_motor -->
   <node pkg="lidar_pointcloud_scan" exec="lidar_rotation_motor" name="lidar_rotation_motor" output="screen">
-    <param name="motorFakeMode" value="$(var motorFakeMode)"/>
-    <param name="fakeAngleIncrement" value="$(var fakeAngleIncrement)"/>
     <param name="incrementPeriod" value="$(var incrementPeriod)"/>
+    <param name="angleIncrement" value="$(var angleIncrement)"/>
+    <param name="motorFakeMode" value="$(var motorFakeMode)"/>
   </node>
 
   <!-- point_cloud_transformer -->
