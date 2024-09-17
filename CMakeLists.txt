@@ -21,7 +21,10 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 
 ament_export_dependencies(rosidl_default_runtime)
 
-add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp)
+add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp
+  include/I2C/I2C.cpp
+  include/PCA9685/PCA9685.cpp
+)
 ament_target_dependencies(lidar_rotation_motor 
   rclcpp
   )
