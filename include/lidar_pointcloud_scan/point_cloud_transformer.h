@@ -13,22 +13,6 @@
 
 using PointCloud2 = sensor_msgs::msg::PointCloud2;
 
-struct PointCloudPoint {
-  float x;
-  float y;
-  float z;
-};
-
-enum EndScanReason {
-  CANCEL,
-  END
-};
-
-enum ProcessingType {
-  POINT_CLOUD_PROCESSING,
-  LASER_SCAN_PROCESSING
-};
-
 class PointCloudTransformer : public rclcpp::Node
 {
 public:

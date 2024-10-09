@@ -8,3 +8,31 @@ enum Result
     RESULT_ERROR,
     RESULT_OK
 };
+
+enum MotorState
+{
+    UNINITIALIZED,
+    INITIALIZED
+};
+
+struct ServoMotorRange
+{
+    int min;
+    int max;
+};
+
+struct PointCloudPoint {
+  float x;
+  float y;
+  float z;
+};
+
+enum EndScanReason {
+  CANCEL,
+  END
+};
+
+enum ProcessingType {
+  POINT_CLOUD_PROCESSING,
+  LASER_SCAN_PROCESSING
+};

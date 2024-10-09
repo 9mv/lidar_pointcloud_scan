@@ -16,19 +16,22 @@ using namespace std::chrono_literals;
 
 constexpr float MIN_ANGLE = -90.0;
 constexpr float MAX_ANGLE = 90.0;
+constexpr float ANGLE_RANGE = 180.0;
 
-// 2048 is angle 0º
 constexpr uint32_t MIN_PWM_VALUE = 0;
 constexpr uint32_t MAX_PWM_VALUE = 4095;
 
 constexpr int I2C_BUS = 1;
 constexpr int PCA9685_ADDRESS = 0x40;
 
+constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
+constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
 
 class LidarRotationMotor : public rclcpp::Node
 {
 public:
     LidarRotationMotor();
+    ~LidarRotationMotor();
 
 //Private methods
 private:
@@ -59,7 +62,11 @@ private:
     */
     Result resetAngle();
 
-
+    /*
+    * Tilt motor calibration routine
+    * @return Result of the operation
+    */
+    Result pwmCalibration();
 
     /*
     * Get the PWM to turn motor to the given angle
@@ -72,6 +79,18 @@ private:
     * @return Result of the operation
     */
     Result moveMotor(uint32_t pwm);
+
+    /*
+    * Stop the rotation motor and pit it to initial angle
+    * @return Result of the operation
+    */
+    Result stopMotor();
+
+    /*
+    * Get the PWM operation range of the motor
+    * @return ServoMotorRange object with min and max PWM values
+    */
+    ServoMotorRange getPwmRange();
 
 // Private attributes
 private: 
@@ -86,8 +105,9 @@ private:
     // Direction of the rotation (true: clockwise, false: counter-clockwise)
     bool direction_ = true;
 
-    // Attributes for fake mode
+    // Special motor modes
     bool motorFakeMode_ = false;
+    bool calibrationMode_ = false;
     
     // Increment of the angle of the LiDAR tilt motor
     float angleIncrement_ = 1;
@@ -95,8 +115,23 @@ private:
     // Angle increment period in ms
     float incrementPeriod_ = 250.0;
 
+    // Servo driver board
     PCA9685* pwmController_ = nullptr;
 
     //@todo -> temporal to test. DELETE
     bool go = true;
+
+    // State of the motor
+    MotorState motorState_ = UNINITIALIZED;
+
+    // Corrections of PWM range
+    int minPwm_ = MIN_PWM_VALUE;
+    int maxPwm_ = MAX_PWM_VALUE;
+
+    // Corrections of motor rotation angle range
+    float minAngle_ = MIN_ANGLE;
+    float maxAngle_ = MAX_ANGLE;
+
+    // Frequency of the PWM signal
+    int pwmFrequency_ = 150;
 };

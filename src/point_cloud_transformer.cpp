@@ -70,7 +70,7 @@ void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::ms
 {
   if (inScan_)
   {
-    LOG_ROS_ERROR(this, "New angle: '%f'", msg->angle);
+    LOG_ROS_INFO(this, "New angle: '%f'", msg->angle);
     currentAngle_ = msg->angle;
     if (currentAngle_ == 90)
     {
@@ -82,7 +82,7 @@ void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::ms
 
 void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan)
 {
-  int count = scan->scan_time / scan->time_increment;
+  //int count = scan->scan_time / scan->time_increment;
 
   //LOG_ROS_ERROR(this, "New laserscan received: %s[%d]. Adjusting with processingType %d", scan->header.frame_id.c_str(), count, processingType_);
 
@@ -194,7 +194,7 @@ void PointCloudTransformer::appendToCumulativePointCloud(const PointCloud2& poin
   uint32_t newWidth = oldWidth + pointCloud2.width;
 
   size_t cumulativePoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
-  size_t appendPoints = pointCloud2.width * pointCloud2.height;
+  //size_t appendPoints = pointCloud2.width * pointCloud2.height;
 
   cumulativePointCloud_.data.resize(cumulativePointCloud_.data.size() + pointCloud2.data.size());
 

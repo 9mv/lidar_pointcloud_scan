@@ -13,6 +13,9 @@
   <arg name="incrementPeriod" default="62.5"/>
   <arg name="angleIncrement" default="0.5"/>
   <arg name="motorFakeMode" default="false"/>
+  <arg name="pwmFrequency" default="150"/>
+  <arg name="angleRange" default="180.0"/>
+
 
   <!-- point_cloud_transformer -->
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
@@ -39,6 +42,8 @@
     <param name="incrementPeriod" value="$(var incrementPeriod)"/>
     <param name="angleIncrement" value="$(var angleIncrement)"/>
     <param name="motorFakeMode" value="$(var motorFakeMode)"/>
+    <param name="pwmFrequency" value="$(var pwmFrequency)"/>
+    <param name="angleRange" value="$(var angleRange)"/>
   </node>
 
   <!-- point_cloud_transformer -->

@@ -62,7 +62,7 @@ void PCA9685::reset() {
  */
 void PCA9685::setPWMFreq(int freq) {
 
-		uint8_t prescale_val = (CLOCK_FREQ / 4096 / freq)  - 1;
+		uint8_t prescale_val = (CLOCK_FREQ / RESOLUTION_PCA9685 / freq)  - 1;
 		i2c->write_byte(MODE1, 0x10); //sleep
 		i2c->write_byte(PRE_SCALE, prescale_val); // multiplyer for PWM frequency
 		i2c->write_byte(MODE1, 0x80); //restart
