@@ -5,6 +5,7 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "lidar_pointcloud_scan/msg/angle.hpp"
+#include "lidar_pointcloud_scan/srv/stop_scan.hpp"
 #include "lidar_pointcloud_scan/types.h"
 
 #include "PCA9685/PCA9685.h"
@@ -92,13 +93,31 @@ private:
     */
     ServoMotorRange getPwmRange();
 
+    /*
+    * Request the end of a scan
+    * @return Result of the operation
+    */
+    Result endOfScanRequest();
+
+    /*
+    * Callback for the end of scan service
+    * @param stopScanServiceFuture Future of the stop scan service to check the result
+    */
+    void endOfScanRequestCallback(rclcpp::Client<lidar_pointcloud_scan::srv::StopScan>::SharedFuture stopScanServiceFuture);
+
 // Private attributes
 private: 
     rclcpp::TimerBase::SharedPtr timer_;
 
     // Publishers
     rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr publisher_;
+
+    // Service Clients
+    rclcpp::Client<lidar_pointcloud_scan::srv::StopScan>::SharedPtr stopScanServiceClient_;
     
+    // Flag to indicate if the scan is in progress
+    bool inScan_ = true;
+
     // Current angle of the tilt motor
     float currentAngle_ = -90;
 

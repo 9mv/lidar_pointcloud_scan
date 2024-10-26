@@ -4,6 +4,8 @@ PointCloudTransformer::PointCloudTransformer()
 : Node("point_cloud_transformer")
 {
   initParameters();
+
+  // Subscriptions and publishers
   angleSubscription_ = this->create_subscription<lidar_pointcloud_scan::msg::Angle>(
       "tilt_angle", 10, 
       std::bind(&PointCloudTransformer::angleUpdateCallback, this, std::placeholders::_1));
@@ -13,6 +15,13 @@ PointCloudTransformer::PointCloudTransformer()
       std::bind(&PointCloudTransformer::lidarScanCallback, this, std::placeholders::_1));
 
   pointCloudPublisher_ = this->create_publisher<PointCloud2>("scan_3d", 10);
+
+  // Services
+  stopScanService_ = this->create_service<lidar_pointcloud_scan::srv::StopScan>(
+        "stop_scan",
+        std::bind(&PointCloudTransformer::handleStopScan, this, std::placeholders::_1, std::placeholders::_2)
+    );
+
   ////////////////////////////////////////
   // @todo -> remove once method to start/stop is implemented
   // this way, the scan is always on
@@ -44,23 +53,39 @@ void PointCloudTransformer::initScanCallback ()
   inScan_ = true;
 }
 
-void PointCloudTransformer::stopScanCallback (EndScanReason reason)
+void PointCloudTransformer::handleStopScan (const std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Request> request, std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Response> response)
+{
+  if (!inScan_)
+  {
+    LOG_ROS_ERROR(this, "Scan not in progress. Skipping handleStopScan.");
+    return;
+  }
+  auto endScanReason = static_cast<EndScanReason>(request->stop_reason);
+
+  LOG_ROS_INFO(this, "Stop scan requested with reason %d", endScanReason);
+  stopScan(endScanReason);
+
+  // @todo -> configure the response
+  response->success = true;
+}
+
+void PointCloudTransformer::stopScan (EndScanReason reason)
 {
   if (!inScan_)
   {
     return;
   }
-  LOG_ROS_ERROR(this, "End scanning process");
+  LOG_ROS_INFO(this, "End scanning process");
 
   if (reason == EndScanReason::END)
   {
-    LOG_ROS_ERROR(this, "Scan COMPLETE");
+    LOG_ROS_INFO(this, "Scan COMPLETE");
     
     // @todo -> necessito notificar a algú que ha acabat i com?
   }
   else if (reason == EndScanReason::CANCEL)
   {
-    LOG_ROS_ERROR(this, "Scan STOPPED");
+    LOG_ROS_INFO(this, "Scan STOPPED");
     reset_ = true;
   }
   inScan_ = false;
@@ -70,14 +95,8 @@ void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::ms
 {
   if (inScan_)
   {
-    LOG_ROS_INFO(this, "New angle: '%f'", msg->angle);
     currentAngle_ = msg->angle;
-    if (currentAngle_ == 90)
-    {
-      stopScanCallback(EndScanReason::END);
-    }
   }
-
 }
 
 void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan)
@@ -85,6 +104,10 @@ void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan
   //int count = scan->scan_time / scan->time_increment;
 
   //LOG_ROS_ERROR(this, "New laserscan received: %s[%d]. Adjusting with processingType %d", scan->header.frame_id.c_str(), count, processingType_);
+  if (!inScan_)
+  {
+    return;
+  }
 
   if (processingType_ == POINT_CLOUD_PROCESSING)
   {

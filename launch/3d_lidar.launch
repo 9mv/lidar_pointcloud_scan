@@ -10,7 +10,7 @@
   <arg name="scan_mode" default="Sensitivity" description="Specifying scan mode of lidar"/>
 
   <!-- lidar_rotation_motor -->
-  <arg name="incrementPeriod" default="100.0"/>
+  <arg name="incrementPeriod" default="65.5"/>
   <arg name="angleIncrement" default="0.25"/>
   <arg name="motorFakeMode" default="false"/>
   <arg name="pwmFrequency" default="150"/>

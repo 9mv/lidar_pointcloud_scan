@@ -3,6 +3,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "lidar_pointcloud_scan/msg/angle.hpp"
+#include "lidar_pointcloud_scan/srv/stop_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include <math.h>
@@ -42,11 +43,17 @@ private:
     void initScanCallback ();
 
     /*
-    * Callback to stop the scanning process.
-    * @param reason: reason for stopping the scan -> @todo: think about this. The reason will be passed as a member of the message type of the topic or will it be passed as argument?
-    * @todo: implement node to initiate and stop/cancel scanning process. This callback will be called when the action/service/topic is triggered.
+    * Handle the service request to stop the scanning process.
+    * @param request: request message, including the EndScanReason for the stop scan.
+    * @param response: response success of the operation.
     */
-    void stopScanCallback (EndScanReason reason);
+    void handleStopScan (const std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Request> request, std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Response> response);
+
+    /*
+    * Stop the scanning process.
+    * @param reason: reason for stopping the scan -> @todo: think about this. The reason will be passed as a member of the message type of the topic or will it be passed as argument?
+    */
+    void stopScan (EndScanReason reason);
 
 // Private attributes
 private:
@@ -56,6 +63,9 @@ private:
 
   // Publishers
   rclcpp::Publisher<PointCloud2>::SharedPtr pointCloudPublisher_;
+
+  // Services
+  rclcpp::Service<lidar_pointcloud_scan::srv::StopScan>::SharedPtr stopScanService_;
 
   // set to true while there is a scan in process
   bool inScan_ = false;

@@ -1,0 +1,3 @@
+int8 stop_reason
+---
+bool success
