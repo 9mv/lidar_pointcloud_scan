@@ -110,11 +110,13 @@ void LidarRotationMotor::updateAngle()
         float idleAngle = minAngle_ + (maxAngle_ - minAngle_) / 2;
         uint32_t pwm = getPWMValueFromAngle(idleAngle);
         moveMotor(pwm);
+        LOG_ROS_INFO(this, "Idle angle: %f", idleAngle);
         if (endOfScanRequest() != RESULT_OK)
         {
           assert(0);
         }
         LOG_ROS_INFO(this, "Scan stopped");
+        return;
       }
     }
   }
