@@ -134,4 +134,10 @@ private:
 
     // Frequency of the PWM signal
     int pwmFrequency_ = 150;
+
+    // Full sweeps to complete a scan (1 full sweep covers forward angles and backward angles)
+    int sweepsPerScan_ = 1;
+
+    // Attribute to keep track of the current scan sweep
+    int currentScanSweep_ = 0;
 };

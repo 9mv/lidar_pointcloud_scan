@@ -36,6 +36,7 @@ void LidarRotationMotor::initParameters ()
   this->declare_parameter<bool>("calibrationMode", false);
   this->declare_parameter<int>("pwmFrequency", 150);
   this->declare_parameter<float>("angleRange", ANGLE_RANGE);
+  this->declare_parameter<int>("sweepsPerScan", 1);
 
   // Get parameters
   this->get_parameter<bool>("motorFakeMode", motorFakeMode_);
@@ -51,6 +52,8 @@ void LidarRotationMotor::initParameters ()
   LOG_ROS_INFO(this, "calibrationMode: %s", calibrationMode_ ? "true" : "false");
 
   this->get_parameter_or<int>("pwmFrequency", pwmFrequency_, 150);
+
+  this->get_parameter_or<int>("sweepsPerScan", sweepsPerScan_, 1);
   
   ServoMotorRange range = getPwmRange();
   minPwm_ = range.min;
@@ -82,24 +85,31 @@ void LidarRotationMotor::timer_callback()
 
 void LidarRotationMotor::updateAngle()
 {
-  // Update angle
+  // Update angle and direction
   currentAngle_ = direction_ ? currentAngle_+angleIncrement_ : currentAngle_-angleIncrement_;
   if (currentAngle_ == maxAngle_ || currentAngle_ == minAngle_)
   {
+    LOG_ROS_INFO(this, "Change direction");
     direction_ = !direction_;
-  }
 
-  /////////////////////////////////
-  // CODI PER PROVES @todo -> delete
-  if (currentAngle_ == maxAngle_)
-  {
-    LOG_ROS_INFO(this, "maxAngle_, stop rotation");
-    go = false;
-    stopMotor();
+    // Each minAngle_ means new sweep, increment counter for current scan
+    if (currentAngle_ == minAngle_)
+    {
+      // Not all sweeps covered, increase counter for new sweep
+      if (currentScanSweep_ < sweepsPerScan_)
+      {
+        currentScanSweep_++;
+      }
+      // All sweeps covered, stop scan
+      else
+      {
+        LOG_ROS_INFO(this, "All sweeps covered, stop scan");
+        go = false;
+        currentScanSweep_ = 0;
+        stopMotor();
+      }
+    }
   }
-  //
-  /////////////////////////////////
-
 
   if (!motorFakeMode_)
   {

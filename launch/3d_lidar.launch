@@ -10,11 +10,12 @@
   <arg name="scan_mode" default="Sensitivity" description="Specifying scan mode of lidar"/>
 
   <!-- lidar_rotation_motor -->
-  <arg name="incrementPeriod" default="62.5"/>
-  <arg name="angleIncrement" default="0.5"/>
+  <arg name="incrementPeriod" default="100.0"/>
+  <arg name="angleIncrement" default="0.25"/>
   <arg name="motorFakeMode" default="false"/>
   <arg name="pwmFrequency" default="150"/>
   <arg name="angleRange" default="180.0"/>
+  <arg name="sweepsPerScan" default="1"/>
 
 
   <!-- point_cloud_transformer -->
@@ -44,6 +45,7 @@
     <param name="motorFakeMode" value="$(var motorFakeMode)"/>
     <param name="pwmFrequency" value="$(var pwmFrequency)"/>
     <param name="angleRange" value="$(var angleRange)"/>
+    <param name="sweepsPerScan" value="$(var sweepsPerScan)"/>
   </node>
 
   <!-- point_cloud_transformer -->

@@ -114,16 +114,14 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
       // Get x and y using basic trigonometry given the angle of scan and radius
       float x = range * std::cos(angle);
       float y = range * std::sin(angle);
-
-      // Adjust x and calculate z based on the motor angle (repeat previous step with extra axis and angle)
-      float adjusted_x = x * std::cos(motorAngleInRad);
-      float z = x * std::sin(motorAngleInRad);
       
+      float adjusted_y = y * std::cos(motorAngleInRad);
+      float z = y * std::sin(motorAngleInRad);
       PointCloudPoint point;
-      point.x = adjusted_x;
-      point.y = y;
+      point.x = x;
+      point.y = adjusted_y;
       point.z = z;
-
+      
       points.push_back(point);
     }
   }
