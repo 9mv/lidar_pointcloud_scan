@@ -3,6 +3,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "sensor_msgs/msg/laser_scan.hpp"
 #include "lidar_pointcloud_scan/msg/angle.hpp"
+#include "lidar_pointcloud_scan/srv/start_scan.hpp"
 #include "lidar_pointcloud_scan/srv/stop_scan.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
@@ -26,21 +27,31 @@ private:
     */
     void initParameters();
 
-    // Point Cloud processing
+    /*
+    * Point Cloud processing
+    */ 
     void updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan);
     void appendToCumulativePointCloud(const PointCloud2 & pointCloud);
     Result publishPointCloud();
 
-    // Subscription callbacks
+    /*
+    * Subscription callbacks
+    */
     void angleUpdateCallback (const lidar_pointcloud_scan::msg::Angle::SharedPtr msg);
     void lidarScanCallback (const sensor_msgs::msg::LaserScan::SharedPtr scan);
 
-    // Init/Stop scan callbacks
+
     /*
-    * Callback to initialize the scanning process.
-    * @todo: implement node to initiate and stop/cancel scanning process. This callback will be called when the action/service/topic is triggered.
+    * Handle the service request to start the scanning process.
+    * @param request: request message, empty.
+    * @param response: response success of the operation.
     */
-    void initScanCallback ();
+    void handleStartScan (const std::shared_ptr<lidar_pointcloud_scan::srv::StartScan::Request> request, std::shared_ptr<lidar_pointcloud_scan::srv::StartScan::Response> response);
+
+    /*
+    * Start the scanning process.
+    */
+    void startScan ();
 
     /*
     * Handle the service request to stop the scanning process.
@@ -65,6 +76,7 @@ private:
   rclcpp::Publisher<PointCloud2>::SharedPtr pointCloudPublisher_;
 
   // Services
+  rclcpp::Service<lidar_pointcloud_scan::srv::StartScan>::SharedPtr startScanService_;
   rclcpp::Service<lidar_pointcloud_scan::srv::StopScan>::SharedPtr stopScanService_;
 
   // set to true while there is a scan in process

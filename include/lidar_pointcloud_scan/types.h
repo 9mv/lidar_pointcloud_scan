@@ -36,3 +36,31 @@ enum ProcessingType {
   POINT_CLOUD_PROCESSING,
   LASER_SCAN_PROCESSING
 };
+
+enum JoyButtonPriority {
+  PRIORITY_UNSET = -1,
+  PRIORITY_SCAN = 0,
+  PRIORITY_CANCEL = 1
+};
+
+enum JoyButton{
+  BUTTON_NONE = -1,
+  BUTTON_SPACE = 0,
+  BUTTON_SCAN = 1,
+  BUTTON_CANCEL = 2
+};
+
+enum MotorDirection{
+  DIRECTION_FORWARD,
+  DIRECTION_REVERSE
+};
+
+// CONSTANTS
+const std::unordered_map<JoyButton, JoyButtonPriority> BUTTON_PRIORITY_MAP = {
+    {JoyButton::BUTTON_NONE, JoyButtonPriority::PRIORITY_UNSET},
+    {JoyButton::BUTTON_SPACE, JoyButtonPriority::PRIORITY_UNSET},
+    {JoyButton::BUTTON_SCAN, JoyButtonPriority::PRIORITY_SCAN},
+    {JoyButton::BUTTON_CANCEL, JoyButtonPriority::PRIORITY_CANCEL}
+};
+
+

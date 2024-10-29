@@ -17,21 +17,19 @@ PointCloudTransformer::PointCloudTransformer()
   pointCloudPublisher_ = this->create_publisher<PointCloud2>("scan_3d", 10);
 
   // Services
+  startScanService_ = this->create_service<lidar_pointcloud_scan::srv::StartScan>(
+    "start_scan_transformer",
+    std::bind(&PointCloudTransformer::handleStartScan, this, std::placeholders::_1, std::placeholders::_2)
+  );
   stopScanService_ = this->create_service<lidar_pointcloud_scan::srv::StopScan>(
-        "stop_scan",
-        std::bind(&PointCloudTransformer::handleStopScan, this, std::placeholders::_1, std::placeholders::_2)
-    );
-
-  ////////////////////////////////////////
-  // @todo -> remove once method to start/stop is implemented
-  // this way, the scan is always on
-  initScanCallback();
-  ////////////////////////////////////////
+    "stop_scan_transformer",
+    std::bind(&PointCloudTransformer::handleStopScan, this, std::placeholders::_1, std::placeholders::_2)
+  );
 }
 
 void PointCloudTransformer::initParameters ()
 {
-  LOG_ROS_ERROR(this, "Initializing parameters");
+  LOG_ROS_INFO(this, "Initializing parameters");
 
   // Declare parameters
   this->declare_parameter<bool>("appendMode", false);
@@ -39,21 +37,33 @@ void PointCloudTransformer::initParameters ()
 
   // Get parameters
   this->get_parameter<bool>("appendMode", appendMode_);
-  LOG_ROS_ERROR(this, "appendMode: %s", appendMode_ ? "true" : "false");
+  LOG_ROS_INFO(this, "appendMode: %s", appendMode_ ? "true" : "false");
 
   int processingType;
   this->get_parameter_or<int>("processingType", processingType, 0);
   processingType_ = static_cast<ProcessingType>(processingType);
-  LOG_ROS_ERROR(this, "processingType: %d", processingType_);
+  LOG_ROS_INFO(this, "processingType: %d", processingType_);
 }
 
-void PointCloudTransformer::initScanCallback ()
+void PointCloudTransformer::handleStartScan(
+  const std::shared_ptr<lidar_pointcloud_scan::srv::StartScan::Request> request,
+  std::shared_ptr<lidar_pointcloud_scan::srv::StartScan::Response> response)
 {
-  LOG_ROS_ERROR(this, "Initializing scanning process");
+  (void) request;
+  if (inScan_)
+  {
+    LOG_ROS_ERROR(this, "Scan in progress. Skipping handleStartScan.");
+    return;
+  }
+
+  LOG_ROS_INFO(this, "Start scan requested");
+
+  // @todo -> configure the response
+  response->success = true;
   inScan_ = true;
 }
 
-void PointCloudTransformer::handleStopScan (const std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Request> request, std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Response> response)
+void PointCloudTransformer::handleStopScan(const std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Request> request,  std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Response> response)
 {
   if (!inScan_)
   {

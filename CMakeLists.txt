@@ -8,6 +8,8 @@ endif()
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(action_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
@@ -16,12 +18,18 @@ set(msg_files
 )
 
 set(srv_files
+  "srv/StartScan.srv"  
   "srv/StopScan.srv"
+)
+
+set(action_files
+  "action/MotorScan.action"
 )
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   ${msg_files}
   ${srv_files}
+  ${action_files}
 )
 
 ament_export_dependencies(rosidl_default_runtime)
@@ -32,6 +40,8 @@ add_executable(lidar_rotation_motor src/lidar_rotation_motor.cpp
 )
 ament_target_dependencies(lidar_rotation_motor 
   rclcpp
+  rclcpp_action
+  action_msgs
   )
 
 add_executable(point_cloud_transformer src/point_cloud_transformer.cpp)
@@ -40,6 +50,14 @@ ament_target_dependencies(point_cloud_transformer
   sensor_msgs
   )
 
+add_executable(device_orchestrator src/device_orchestrator.cpp)
+ament_target_dependencies(device_orchestrator 
+  rclcpp
+  rclcpp_action
+  action_msgs
+  sensor_msgs
+)
+
 install(DIRECTORY launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
@@ -47,6 +65,7 @@ install(DIRECTORY launch rviz
 install(TARGETS 
     lidar_rotation_motor
     point_cloud_transformer
+    device_orchestrator
   DESTINATION lib/${PROJECT_NAME}
 )
 
@@ -62,11 +81,17 @@ target_include_directories(point_cloud_transformer PUBLIC
   $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
 target_compile_features(point_cloud_transformer PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
+target_include_directories(device_orchestrator PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include/${PROJECT_NAME}>)
+target_compile_features(device_orchestrator PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
 
 target_link_libraries(lidar_rotation_motor "${cpp_typesupport_target}")
 target_link_libraries(point_cloud_transformer "${cpp_typesupport_target}")
+target_link_libraries(device_orchestrator "${cpp_typesupport_target}")
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

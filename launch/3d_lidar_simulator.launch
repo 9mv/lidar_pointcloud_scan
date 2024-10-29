@@ -1,0 +1,55 @@
+<launch>
+  <!-- DEFINITION OF ARGUMENTS -->
+  <!-- lidar_rotation_motor -->
+  <arg name="incrementPeriod" default="100.0"/>
+  <arg name="angleIncrement" default="1.0"/>
+  <arg name="motorFakeMode" default="true"/>
+
+  <!-- point_cloud_transformer -->
+  <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
+  <arg name="processingType" default="0"/>
+
+  <!-- keyboard -->
+  <arg name="allowRepeat" default="false"/>
+  <arg name="repeatDelay" default="50"/>
+  <arg name="repeatInterval" default="500"/>
+
+  <!-- keyboard_to_joy -->
+  <arg name="configFileName" default="$(find-pkg-share keyboard)/config/3d_lidar_config.yaml" description="Path to the keyboard to joy configuration file"/>
+  <arg name="samplingFrequency" default="10" description="Sampling frequency for the keyboard_to_joy node"/>
+
+
+  <!-- NODE INITIALIZATION -->
+  <!-- rviz: idea is to simulate PointCloud2 messages-->
+  <!--<node pkg="rviz2" exec="rviz2" name="rviz2" output="screen" args="-d $(find-pkg-share lidar_pointcloud_scan)/rviz/sllidar_ros2.rviz" />-->
+
+  <!-- lidar_rotation_motor -->
+  <node pkg="lidar_pointcloud_scan" exec="lidar_rotation_motor" name="lidar_rotation_motor" output="screen">
+    <param name="incrementPeriod" value="$(var incrementPeriod)"/>
+    <param name="angleIncrement" value="$(var angleIncrement)"/>
+    <param name="motorFakeMode" value="$(var motorFakeMode)"/>
+  </node>
+
+  <!-- point_cloud_transformer -->
+  <node pkg="lidar_pointcloud_scan" exec="point_cloud_transformer" name="point_cloud_transformer" output="screen">
+    <param name="appendMode" value="$(var appendMode)"/>
+    <param name="processingType" value="$(var processingType)"/>
+  </node>
+
+    <!-- device_orchestrator -->
+  <node pkg="lidar_pointcloud_scan" exec="device_orchestrator" name="device_orchestrator" output="screen"/>
+
+  <!-- keyboard -->
+  <node pkg="keyboard" exec="keyboard" name="keyboard_node" output="screen">
+    <param name="allow_repeat" value="$(var allowRepeat)"/>
+    <param name="repeat_delay" value="$(var repeatDelay)"/>
+    <param name="repeat_interval" value="$(var repeatInterval)"/>
+  </node>
+
+  <!-- keyboard_to_joy -->
+  <node pkg="keyboard" exec="keyboard_to_joy.py" name="keyboard_to_joy_node" output="screen">
+    <param name="config_file_name" value="$(var configFileName)"/>
+    <param name="sampling_frequency" value="$(var samplingFrequency)"/>
+  </node>
+
+</launch>

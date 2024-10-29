@@ -8,7 +8,8 @@ LidarRotationMotor::LidarRotationMotor()
 
   publisher_ = this->create_publisher<lidar_pointcloud_scan::msg::Angle>("tilt_angle", 10); // https://docs.ros2.org/galactic/api/std_msgs/index-msg.html
 
-  stopScanServiceClient_ = this->create_client<lidar_pointcloud_scan::srv::StopScan>("stop_scan");
+  initScanServer();
+
   Result res = initializeMotor();
   if (res != Result::RESULT_OK)
   {
@@ -70,6 +71,84 @@ void LidarRotationMotor::initParameters ()
   LOG_ROS_INFO(this, "maxAngle: %f", maxAngle_);
 }
 
+Result LidarRotationMotor::initScanServer()
+{
+  motorScanActionServer_ = rclcpp_action::create_server<MotorScan>(
+      this,
+      "motor_scan",
+      std::bind(&LidarRotationMotor::handleGoal, this, std::placeholders::_1, std::placeholders::_2),
+      std::bind(&LidarRotationMotor::handleCancel, this, std::placeholders::_1),
+      std::bind(&LidarRotationMotor::handleAccepted, this, std::placeholders::_1));
+  
+  return RESULT_OK;
+}
+
+rclcpp_action::GoalResponse LidarRotationMotor::handleGoal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const MotorScan::Goal> goal)
+{
+  RCLCPP_INFO(this->get_logger(), "Received goal request UUID x");
+  (void)uuid;
+  (void)goal;
+  if (motorState_ == MotorState::UNINITIALIZED || !inScan_)
+  {
+    return rclcpp_action::GoalResponse::REJECT;
+  }
+  else
+  {
+    startOfScanActions();
+    return rclcpp_action::GoalResponse::ACCEPT_AND_EXECUTE;
+  }
+
+}
+
+rclcpp_action::CancelResponse LidarRotationMotor::handleCancel(const std::shared_ptr<GoalHandleMotorScan> goalHandle)
+{
+  RCLCPP_INFO(this->get_logger(), "Received request to cancel goal");
+  (void)goalHandle;
+  return rclcpp_action::CancelResponse::ACCEPT;
+}
+
+void LidarRotationMotor::handleAccepted(const std::shared_ptr<GoalHandleMotorScan> goalHandle)
+{
+  using namespace std::placeholders;
+  // Scan feedback executing in new thread to avoid blocking the execution of the node
+  std::thread{std::bind(&LidarRotationMotor::scanFeedBackProvider, this, std::placeholders::_1), goalHandle}.detach();
+}
+
+// @todo -> I could implement the updateAngle based on each feedback + remove the looprate based on hardcoded value. Would it add much delay or operations?
+void LidarRotationMotor::scanFeedBackProvider(const std::shared_ptr<GoalHandleMotorScan> goalHandle)
+{
+  rclcpp::Rate loopRate(FEEDBACK_PROVIDER_LOOP_RATE);
+  const auto goal = goalHandle->get_goal();
+  auto feedback = std::make_shared<MotorScan::Feedback>();
+  auto result = std::make_shared<MotorScan::Result>();
+  
+  // Iterate at FEEDBACK_PROVIDER_LOOP_RATE Hz until motor has finished (inScan_ == false)
+  while (inScan_ && rclcpp::ok()) {
+    // Check if there is a cancel request
+    if (goalHandle->is_canceling()) {
+      result->end_result = static_cast<int8_t>(EndScanReason::CANCEL);
+      goalHandle->canceled(result);
+      RCLCPP_INFO(this->get_logger(), "Goal canceled");
+      endOfScanActions(EndScanReason::CANCEL);
+      return;
+    }
+    // Publish feedback
+    // @todo -> check if some kind of useful feedback can be sent to the orchestrator
+    feedback->angle = currentAngle_;
+    goalHandle->publish_feedback(feedback);
+
+    loopRate.sleep();
+  }
+
+  // Send the goal result after exiting thread loop
+  if (rclcpp::ok()) {
+    result->end_result = static_cast<int8_t>(EndScanReason::END);
+    goalHandle->succeed(result);
+    RCLCPP_INFO(this->get_logger(), "Goal succeeded");
+  }
+  inScan_ = false;
+}
+
 void LidarRotationMotor::timer_callback()
 {
   if (motorState_ == MotorState::UNINITIALIZED || !inScan_)
@@ -86,14 +165,15 @@ void LidarRotationMotor::timer_callback()
 
 void LidarRotationMotor::updateAngle()
 {
+//  LOG_ROS_INFO(this, "Current angle: %f and direction is %d", currentAngle_, direction_);
   if (currentAngle_ == maxAngle_ || currentAngle_ == minAngle_)
   {
     LOG_ROS_INFO(this, "Change rotation direction");
-    direction_ = !direction_;
 
     // Each minAngle_ means new sweep, increment counter for current scan
     if (currentAngle_ == minAngle_)
     {
+      direction_ = DIRECTION_FORWARD;
       // Not all sweeps covered, increase counter for new sweep
       if (currentScanSweep_ < sweepsPerScan_)
       {
@@ -104,36 +184,53 @@ void LidarRotationMotor::updateAngle()
       else
       {
         LOG_ROS_INFO(this, "All sweeps covered, stop scan");
-        inScan_ = false;
-        currentScanSweep_ = 0;
-
-        float idleAngle = minAngle_ + (maxAngle_ - minAngle_) / 2;
-        uint32_t pwm = getPWMValueFromAngle(idleAngle);
-        moveMotor(pwm);
-        LOG_ROS_INFO(this, "Idle angle: %f", idleAngle);
-        if (endOfScanRequest() != RESULT_OK)
-        {
-          assert(0);
-        }
+        endOfScanActions(EndScanReason::END);
         LOG_ROS_INFO(this, "Scan stopped");
         return;
       }
     }
+    else
+    {
+      direction_ = DIRECTION_REVERSE;
+    }
+  }
+  else if(currentAngle_ > maxAngle_ || currentAngle_ < minAngle_)
+  {
+    LOG_ROS_ERROR(this, "Angle out of range (%f). Shutdown...", currentAngle_);
+    rclcpp::shutdown();
   }
 
   // Update angle and direction
-  currentAngle_ = direction_ ?  currentAngle_-angleIncrement_ : currentAngle_+angleIncrement_;
+  currentAngle_ = direction_==DIRECTION_FORWARD ? currentAngle_+angleIncrement_ : currentAngle_-angleIncrement_;
 
   if (!motorFakeMode_)
   {
     uint32_t pwm = getPWMValueFromAngle(currentAngle_);
     moveMotor(pwm);
-
-    // Get the servo PWM value for that angle and move the motor to that position
-    //uint32_t pwm = getPWMValueFromAngle(currentAngle_);
-    //moveMotor(pwm);
-
   }
+}
+
+void LidarRotationMotor::startOfScanActions()
+{
+  resetAngle();
+  direction_ = DIRECTION_FORWARD;
+  LOG_ROS_INFO(this, "reset to initial angle %f", currentAngle_);
+  inScan_ = true;
+}
+
+void LidarRotationMotor::endOfScanActions(EndScanReason endReason)
+{
+    (void)endReason;
+    float idleAngle = minAngle_ + (maxAngle_ - minAngle_) / 2;
+    uint32_t pwm = getPWMValueFromAngle(idleAngle);
+    if (!motorFakeMode_)
+    {
+      moveMotor(pwm);
+    }
+    inScan_ = false;
+    currentScanSweep_ = 0;
+    currentAngle_ = idleAngle;
+    LOG_ROS_INFO(this, "set to idle angle %f", idleAngle);
 }
 
 Result LidarRotationMotor::resetAngle()
@@ -179,6 +276,8 @@ Result LidarRotationMotor::initializeMotor()
 
 Result LidarRotationMotor::pwmCalibration()
 {
+  // @todo -> delete this function if there is no real use
+  /*
   uint32_t step = 10;
 
   LOG_ROS_INFO(this, "Press any key when you see motor movement to stop calibration.");
@@ -190,6 +289,7 @@ Result LidarRotationMotor::pwmCalibration()
     rclcpp::sleep_for(std::chrono::milliseconds(500));
   }
   LOG_ROS_INFO(this, "PWM Calibration finished");
+  */
   return Result::RESULT_OK;
 }
 
@@ -207,7 +307,7 @@ uint32_t LidarRotationMotor::getPWMValueFromAngle(float angle)
 
 Result LidarRotationMotor::moveMotor(uint32_t pwm)
 {
-  // @todo -> implement extra verbose traces by launch param
+  // @todo -> implement extra verbose traces by launch param. false meanwhile.
   if (false)
   {
     LOG_ROS_INFO(this, "set PWM to %d", pwm);
@@ -218,9 +318,7 @@ Result LidarRotationMotor::moveMotor(uint32_t pwm)
 
 Result LidarRotationMotor::stopMotor()
 {
-  pwmController_->setPWMFreq(pwmFrequency_); // -> min pos
-  //pwmController_->setPWMFreq(449); -> això fa a anar a la minima pos
-  //pwmController_->setPWMFreq(100 o 300); -> això fa a anar a la maxima pos. per que?
+  pwmController_->setPWMFreq(pwmFrequency_);
   LOG_ROS_INFO(this, "set PWM to %d", minPwm_);
   pwmController_->setPWM(1, minPwm_);
   rclcpp::sleep_for(std::chrono::milliseconds(500));
@@ -241,45 +339,6 @@ ServoMotorRange LidarRotationMotor::getPwmRange()
   LOG_ROS_INFO(this, "PWM range: %d - %d", min_value, max_value);
 
   return {min_value, max_value};
-}
-
-Result LidarRotationMotor::endOfScanRequest()
-{
-  Result res = RESULT_OK;
-
-  LOG_ROS_INFO(this, "Requesting end of scan");
-
-  // Wait for the service to be available
-  if (!stopScanServiceClient_->wait_for_service(std::chrono::seconds(5))) 
-  {
-    LOG_ROS_ERROR(this, "Stop scan service not available after waiting");
-    return res;
-  }
-
-  auto request = std::make_shared<lidar_pointcloud_scan::srv::StopScan::Request>();
-  request->stop_reason = static_cast<int8_t>(EndScanReason::END);
-
-  LOG_ROS_INFO(this, "Sending stop scan request.");
-  auto future = stopScanServiceClient_->async_send_request(
-    request, 
-    std::bind(&LidarRotationMotor::endOfScanRequestCallback, this, std::placeholders::_1)
-  );
-
-  return res;
-}
-
-void LidarRotationMotor::endOfScanRequestCallback(rclcpp::Client<lidar_pointcloud_scan::srv::StopScan>::SharedFuture stopScanServiceFuture)
-{
-  auto response = stopScanServiceFuture.get();
-  if (response->success)
-  {
-    LOG_ROS_INFO(this, "Stop scan service request successful");
-  }
-  else
-  {
-    LOG_ROS_ERROR(this, "Stop scan service request failed");
-    assert(0);
-  }
 }
 
 int main(int argc, char * argv[])

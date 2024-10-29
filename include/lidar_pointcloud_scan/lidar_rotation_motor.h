@@ -4,13 +4,17 @@
 #include <memory>
 
 #include "rclcpp/rclcpp.hpp"
+#include "rclcpp_action/rclcpp_action.hpp"
 #include "lidar_pointcloud_scan/msg/angle.hpp"
-#include "lidar_pointcloud_scan/srv/stop_scan.hpp"
+#include "lidar_pointcloud_scan/action/motor_scan.hpp"
 #include "lidar_pointcloud_scan/types.h"
 
 #include "PCA9685/PCA9685.h"
 
 using namespace std::chrono_literals;
+
+using MotorScan = lidar_pointcloud_scan::action::MotorScan;
+using GoalHandleMotorScan = rclcpp_action::ServerGoalHandle<MotorScan>;
 
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
@@ -24,6 +28,8 @@ constexpr uint32_t MAX_PWM_VALUE = 4095;
 
 constexpr int I2C_BUS = 1;
 constexpr int PCA9685_ADDRESS = 0x40;
+
+constexpr uint8_t FEEDBACK_PROVIDER_LOOP_RATE = 10;
 
 constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
 constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
@@ -42,6 +48,15 @@ private:
     void initParameters ();
 
     /*
+    * MotorScan action server methods
+    */
+    Result initScanServer();
+    rclcpp_action::GoalResponse handleGoal(const rclcpp_action::GoalUUID & uuid, std::shared_ptr<const MotorScan::Goal> goal);
+    rclcpp_action::CancelResponse handleCancel(const std::shared_ptr<GoalHandleMotorScan> goalHandle);
+    void handleAccepted(const std::shared_ptr<GoalHandleMotorScan> goalHandle);
+    void scanFeedBackProvider(const std::shared_ptr<GoalHandleMotorScan> goalHandle);
+    
+    /*
     * Initializing motor actions
     * @return Result of the operation
     */
@@ -58,6 +73,17 @@ private:
     void updateAngle();
 
     /*
+    * Actions to perform at the beginning of a scan
+    */
+    void startOfScanActions();
+
+    /*
+    * Actions to perform at the end of a scan
+    * @param endReason: reason for the end of the scan
+    */
+    void endOfScanActions(EndScanReason endReason);
+
+    /*
     * Reset the angle to 0
     * @return Result of the operation
     */
@@ -71,12 +97,14 @@ private:
 
     /*
     * Get the PWM to turn motor to the given angle
-    * @return uint32_t PWM value 
+    * @param angle: Angle to turn the motor to
+    * @return uint32_t: PWM value 
     */
     uint32_t getPWMValueFromAngle(float angle);
 
     /*
     * Move the rotation motor
+    * @param pwm: PWM value to apply to the motor
     * @return Result of the operation
     */
     Result moveMotor(uint32_t pwm);
@@ -93,17 +121,6 @@ private:
     */
     ServoMotorRange getPwmRange();
 
-    /*
-    * Request the end of a scan
-    * @return Result of the operation
-    */
-    Result endOfScanRequest();
-
-    /*
-    * Callback for the end of scan service
-    * @param stopScanServiceFuture Future of the stop scan service to check the result
-    */
-    void endOfScanRequestCallback(rclcpp::Client<lidar_pointcloud_scan::srv::StopScan>::SharedFuture stopScanServiceFuture);
 
 // Private attributes
 private: 
@@ -112,17 +129,17 @@ private:
     // Publishers
     rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr publisher_;
 
-    // Service Clients
-    rclcpp::Client<lidar_pointcloud_scan::srv::StopScan>::SharedPtr stopScanServiceClient_;
+    // Action Server
+    rclcpp_action::Server<MotorScan>::SharedPtr motorScanActionServer_;
     
     // Flag to indicate if the scan is in progress
-    bool inScan_ = true;
+    bool inScan_ = false;
 
     // Current angle of the tilt motor
     float currentAngle_ = -90;
 
     // Direction of the rotation (true: clockwise, false: counter-clockwise)
-    bool direction_ = true;
+    MotorDirection direction_ = DIRECTION_FORWARD;
 
     // Special motor modes
     bool motorFakeMode_ = false;
