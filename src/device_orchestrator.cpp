@@ -173,7 +173,7 @@ void DeviceOrchestrator::motorScanFeedbackCallback(GoalHandleMotorScan::SharedPt
 
 void DeviceOrchestrator::motorScanResultCallback(const GoalHandleMotorScan::WrappedResult & result)
 {
-    LOG_ROS_INFO(this, "Got result from MotorScan action %d", result.code);
+    LOG_ROS_INFO(this, "Got result from MotorScan action %d", static_cast<uint8_t>(result.code));
     switch (result.code) {
       case rclcpp_action::ResultCode::SUCCEEDED:
         LOG_ROS_INFO(this, "Goal ended with result: %d", result.result->end_result);
