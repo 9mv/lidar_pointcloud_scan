@@ -5,6 +5,7 @@
 #include "lidar_pointcloud_scan/msg/angle.hpp"
 #include "lidar_pointcloud_scan/srv/start_scan.hpp"
 #include "lidar_pointcloud_scan/srv/stop_scan.hpp"
+#include "lidar_pointcloud_scan/srv/transformer_state.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include <math.h>
@@ -14,6 +15,7 @@
 #define DEG2RAD(x) ((x)*M_PI/180.)
 
 using PointCloud2 = sensor_msgs::msg::PointCloud2;
+using TransformerState = lidar_pointcloud_scan::srv::TransformerState;
 
 class PointCloudTransformer : public rclcpp::Node
 {
@@ -66,6 +68,15 @@ private:
     */
     void stopScan (EndScanReason reason);
 
+    // Transformer state service
+    /*
+    * Notify the transformer state to the rotation motor.
+    * @return: result of the operation.
+    */
+    Result notifyTransformerState();
+    void notifyTransformerStateCallback (rclcpp::Client<TransformerState>::SharedFuture transformerStateServiceFuture);
+
+
 // Private attributes
 private:
   // Subscriptions
@@ -76,6 +87,7 @@ private:
   rclcpp::Publisher<PointCloud2>::SharedPtr pointCloudPublisher_;
 
   // Services
+  rclcpp::Client<TransformerState>::SharedPtr transformerStateClient_;
   rclcpp::Service<lidar_pointcloud_scan::srv::StartScan>::SharedPtr startScanService_;
   rclcpp::Service<lidar_pointcloud_scan::srv::StopScan>::SharedPtr stopScanService_;
 
@@ -97,4 +109,7 @@ private:
 
   // Point cloud
   PointCloud2 cumulativePointCloud_;
+
+  // Internal readiness state
+  PointCloudTransformerState state_ = TRANSFORMER_NOT_READY;
 };

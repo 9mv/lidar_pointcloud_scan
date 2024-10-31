@@ -79,4 +79,6 @@ private:
     // Scan state attribute
     bool inScan_ = false;
 
+    // Keep track of the goal request to avoid multiple requests
+    bool motorScanGoalRequested_ = false;
 };

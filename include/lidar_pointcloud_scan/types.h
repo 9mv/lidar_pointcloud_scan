@@ -55,6 +55,11 @@ enum MotorDirection{
   DIRECTION_REVERSE
 };
 
+enum PointCloudTransformerState{
+  TRANSFORMER_NOT_READY,
+  TRANSFORMER_READY
+};
+
 // CONSTANTS
 const std::unordered_map<JoyButton, JoyButtonPriority> BUTTON_PRIORITY_MAP = {
     {JoyButton::BUTTON_NONE, JoyButtonPriority::PRIORITY_UNSET},

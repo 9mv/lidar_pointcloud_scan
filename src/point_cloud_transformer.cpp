@@ -25,6 +25,8 @@ PointCloudTransformer::PointCloudTransformer()
     "stop_scan_transformer",
     std::bind(&PointCloudTransformer::handleStopScan, this, std::placeholders::_1, std::placeholders::_2)
   );
+
+  transformerStateClient_ = this->create_client<TransformerState>("transformer_state");
 }
 
 void PointCloudTransformer::initParameters ()
@@ -60,7 +62,47 @@ void PointCloudTransformer::handleStartScan(
 
   // @todo -> configure the response
   response->success = true;
+  
+  // Notify readiness to motor so it starts moving
+  state_ = TRANSFORMER_READY;
+  notifyTransformerState();
+
+  // @todo -> eliminate current pointCloud data
+
   inScan_ = true;
+}
+
+Result PointCloudTransformer::notifyTransformerState ()
+{
+    Result res = RESULT_OK;
+
+    // Wait for the service to be available
+    if (!transformerStateClient_->wait_for_service(std::chrono::seconds(5))) 
+    {
+        LOG_ROS_ERROR(this, "Timeout for service available wait exceeded");
+        return res;
+    }
+
+    auto request = std::make_shared<TransformerState::Request>();
+    request->state = static_cast<int8_t>(state_);
+
+    LOG_ROS_INFO(this, "Notifying transformer state %d", static_cast<uint32_t>(state_));
+    auto future = transformerStateClient_->async_send_request(
+        request, 
+        std::bind(&PointCloudTransformer::notifyTransformerStateCallback, this, std::placeholders::_1)
+    );
+
+    return res;
+}
+
+void PointCloudTransformer::notifyTransformerStateCallback (rclcpp::Client<TransformerState>::SharedFuture transformerStateServiceFuture)
+{
+  auto response = transformerStateServiceFuture.get();
+  if (!response->success)
+  {
+    LOG_ROS_ERROR(this, "Notification of transformer state failed");
+    rclcpp::shutdown();
+  }
 }
 
 void PointCloudTransformer::handleStopScan(const std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Request> request,  std::shared_ptr<lidar_pointcloud_scan::srv::StopScan::Response> response)
@@ -98,6 +140,8 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
     LOG_ROS_INFO(this, "Scan STOPPED");
     reset_ = true;
   }
+  state_ = TRANSFORMER_NOT_READY;
+  notifyTransformerState();
   inScan_ = false;
 }
 
@@ -127,6 +171,10 @@ void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan
 
 void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan)
 {
+  if (state_ != TRANSFORMER_READY)
+  {
+    return;
+  }
   //LOG_ROS_ERROR(this, "Updating point cloud");
   std::vector<PointCloudPoint> points;
   float motorAngleInRad = DEG2RAD(currentAngle_);

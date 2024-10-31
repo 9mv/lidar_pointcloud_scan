@@ -6,8 +6,16 @@ LidarRotationMotor::LidarRotationMotor()
 {
   initParameters();
 
+  // Publishers
   publisher_ = this->create_publisher<lidar_pointcloud_scan::msg::Angle>("tilt_angle", 10); // https://docs.ros2.org/galactic/api/std_msgs/index-msg.html
 
+  // Services
+  transformerStateService_ = this->create_service<TransformerState>(
+    "transformer_state",
+    std::bind(&LidarRotationMotor::handleTransformerState, this, std::placeholders::_1, std::placeholders::_2)
+  );
+
+  // Actions
   initScanServer();
 
   Result res = initializeMotor();
@@ -88,7 +96,7 @@ rclcpp_action::GoalResponse LidarRotationMotor::handleGoal(const rclcpp_action::
   RCLCPP_INFO(this->get_logger(), "Received goal request UUID x");
   (void)uuid;
   (void)goal;
-  if (motorState_ == MotorState::UNINITIALIZED || !inScan_)
+  if (motorState_ == MotorState::UNINITIALIZED || inScan_)
   {
     return rclcpp_action::GoalResponse::REJECT;
   }
@@ -149,9 +157,19 @@ void LidarRotationMotor::scanFeedBackProvider(const std::shared_ptr<GoalHandleMo
   inScan_ = false;
 }
 
+void LidarRotationMotor::handleTransformerState(const std::shared_ptr<TransformerState::Request> request,  std::shared_ptr<TransformerState::Response> response)
+{
+  transformerState_ = static_cast<PointCloudTransformerState>(request->state);
+
+  LOG_ROS_INFO(this, "New transformer state: %d", transformerState_);
+
+  // @todo -> configure the response
+  response->success = true;
+}
+
 void LidarRotationMotor::timer_callback()
 {
-  if (motorState_ == MotorState::UNINITIALIZED || !inScan_)
+  if (motorState_ == MotorState::UNINITIALIZED || !inScan_ || transformerState_ != PointCloudTransformerState::TRANSFORMER_READY)
   {
     return;
   }
@@ -214,6 +232,20 @@ void LidarRotationMotor::startOfScanActions()
 {
   resetAngle();
   direction_ = DIRECTION_FORWARD;
+
+  // Move the motor to initial angle
+  if (!motorFakeMode_)
+  {
+    uint32_t pwm = getPWMValueFromAngle(minAngle_);
+    LOG_ROS_INFO(this, "Set initial angle");
+    moveMotor(pwm);
+    // Stabilization time
+    rclcpp::sleep_for(std::chrono::seconds(1));
+    LOG_ROS_INFO(this, "Motor set to initial angle");
+  }
+  currentAngle_ = minAngle_;
+
+  // Let the movement end
   LOG_ROS_INFO(this, "reset to initial angle %f", currentAngle_);
   inScan_ = true;
 }
@@ -221,29 +253,30 @@ void LidarRotationMotor::startOfScanActions()
 void LidarRotationMotor::endOfScanActions(EndScanReason endReason)
 {
     (void)endReason;
-    float idleAngle = minAngle_ + (maxAngle_ - minAngle_) / 2;
-    uint32_t pwm = getPWMValueFromAngle(idleAngle);
+    uint32_t pwm = getMotorIdlePwm();
     if (!motorFakeMode_)
     {
       moveMotor(pwm);
     }
     inScan_ = false;
     currentScanSweep_ = 0;
-    currentAngle_ = idleAngle;
-    LOG_ROS_INFO(this, "set to idle angle %f", idleAngle);
+    currentAngle_ = getMotorIdleAngle();
+    LOG_ROS_INFO(this, "set to idle angle %f", currentAngle_);
 }
 
 Result LidarRotationMotor::resetAngle()
 {
-  // @todo: move the motor to initial angle
+  float idleAngle = getMotorIdleAngle();
   if (!motorFakeMode_)
   {
-    uint32_t pwm = getPWMValueFromAngle(minAngle_);
-    LOG_ROS_INFO(this, "Initializing motor. Set initial angle");
+    uint32_t pwm = getPWMValueFromAngle(idleAngle);
+    LOG_ROS_INFO(this, "Initializing motor. Set idle angle");
     moveMotor(pwm);
+    // Stabilization time
     rclcpp::sleep_for(std::chrono::seconds(1));
+    LOG_ROS_INFO(this, "Motor reset");
   }
-  currentAngle_ = minAngle_;
+  currentAngle_ = idleAngle;
   return Result::RESULT_OK;
 }
 
@@ -314,6 +347,16 @@ Result LidarRotationMotor::moveMotor(uint32_t pwm)
   }
   pwmController_->setPWM(1, pwm);
   return Result::RESULT_OK;
+}
+
+float LidarRotationMotor::getMotorIdleAngle()
+{
+  return (minAngle_ + (maxAngle_ - minAngle_) / 2);
+}
+
+uint32_t LidarRotationMotor::getMotorIdlePwm()
+{
+  return getPWMValueFromAngle(getMotorIdleAngle());
 }
 
 Result LidarRotationMotor::stopMotor()

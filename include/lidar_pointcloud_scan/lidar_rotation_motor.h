@@ -6,6 +6,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp_action/rclcpp_action.hpp"
 #include "lidar_pointcloud_scan/msg/angle.hpp"
+#include "lidar_pointcloud_scan/srv/transformer_state.hpp"
 #include "lidar_pointcloud_scan/action/motor_scan.hpp"
 #include "lidar_pointcloud_scan/types.h"
 
@@ -15,6 +16,8 @@ using namespace std::chrono_literals;
 
 using MotorScan = lidar_pointcloud_scan::action::MotorScan;
 using GoalHandleMotorScan = rclcpp_action::ServerGoalHandle<MotorScan>;
+
+using TransformerState = lidar_pointcloud_scan::srv::TransformerState;
 
 /* This example creates a subclass of Node and uses std::bind() to register a
 * member function as a callback from the timer. */
@@ -56,6 +59,11 @@ private:
     void handleAccepted(const std::shared_ptr<GoalHandleMotorScan> goalHandle);
     void scanFeedBackProvider(const std::shared_ptr<GoalHandleMotorScan> goalHandle);
     
+    /*
+    * TransformerState service server methods
+    */
+    void handleTransformerState(const std::shared_ptr<TransformerState::Request> request,  std::shared_ptr<TransformerState::Response> response);
+
     /*
     * Initializing motor actions
     * @return Result of the operation
@@ -110,6 +118,19 @@ private:
     Result moveMotor(uint32_t pwm);
 
     /*
+    * Get the idle angle of the motor
+    * @return float: idle angle
+    * @todo -> implement this as a real idle angle and not the mid angle
+    */
+    float getMotorIdleAngle();
+
+    /*
+    * Get the pwm corresponding to the idle angle of the motor
+    * @return uint32_t: pwm of the motor to achieve idle angle
+    */
+    uint32_t getMotorIdlePwm();
+
+    /*
     * Stop the rotation motor and pit it to initial angle
     * @return Result of the operation
     */
@@ -128,6 +149,9 @@ private:
 
     // Publishers
     rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr publisher_;
+
+    // Services
+    rclcpp::Service<TransformerState>::SharedPtr transformerStateService_;
 
     // Action Server
     rclcpp_action::Server<MotorScan>::SharedPtr motorScanActionServer_;
@@ -176,4 +200,7 @@ private:
 
     // Attribute to keep track of the current scan sweep
     int currentScanSweep_ = 0;
+
+    // Status of readiness of the PointCloudTransformer
+    PointCloudTransformerState transformerState_ = TRANSFORMER_NOT_READY;
 };

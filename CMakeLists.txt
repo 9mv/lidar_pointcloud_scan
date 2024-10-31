@@ -20,6 +20,7 @@ set(msg_files
 set(srv_files
   "srv/StartScan.srv"  
   "srv/StopScan.srv"
+  "srv/TransformerState.srv"
 )
 
 set(action_files

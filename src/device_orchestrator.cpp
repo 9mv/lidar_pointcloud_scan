@@ -31,7 +31,6 @@ void DeviceOrchestrator::initScan ()
 {
     LOG_ROS_ERROR(this, "Initializing scanning process");
 
-    startMotorScan();
     initScanTransformer();
 
     inScan_ = true;
@@ -137,6 +136,7 @@ void DeviceOrchestrator::startMotorScan()
     motorScanRequestOptions.result_callback = std::bind(&DeviceOrchestrator::motorScanResultCallback, this, std::placeholders::_1);
 
     auto goalHandleFuture = motorScanClient_->async_send_goal(motorScanGoal, motorScanRequestOptions);
+    motorScanGoalRequested_ = true;
 }
 
 void DeviceOrchestrator::stopMotorScanCallback(const std::shared_ptr<action_msgs::srv::CancelGoal_Response> response)
@@ -150,7 +150,6 @@ void DeviceOrchestrator::stopMotorScanCallback(const std::shared_ptr<action_msgs
         LOG_ROS_ERROR(this, "Unknown response code for MotorScan action cancellation request");
         rclcpp::shutdown();
     }
-
 }
 
 void DeviceOrchestrator::motorScanGoalResponse(const GoalHandleMotorScan::SharedPtr & goalHandle)
@@ -162,7 +161,10 @@ void DeviceOrchestrator::motorScanGoalResponse(const GoalHandleMotorScan::Shared
     {
       LOG_ROS_INFO(this, "Goal accepted by server, waiting for result");
       motorScanGoalHandle_ = goalHandle;
+      rclcpp::sleep_for(std::chrono::milliseconds(500));
+      initScan();
     }
+    motorScanGoalRequested_ = false;
 }
 
 void DeviceOrchestrator::motorScanFeedbackCallback(GoalHandleMotorScan::SharedPtr goalHandle, const std::shared_ptr<const MotorScan::Feedback> feedback)
@@ -202,9 +204,9 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
         {
             case JoyButton::BUTTON_SCAN:
                 LOG_ROS_INFO(this, "BUTTON_SCAN pressed");
-                if (!inScan_)
+                if (!inScan_ && !motorScanGoalRequested_)
                 {
-                    initScan();
+                    startMotorScan();
                 }
                 else
                 {
@@ -213,7 +215,7 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
                 break;
             case JoyButton::BUTTON_CANCEL:
                 LOG_ROS_INFO(this, "BUTTON_CANCEL pressed");
-                if (inScan_)
+                if (inScan_ || motorScanGoalRequested_)
                 {
                     stopScan(EndScanReason::CANCEL);
                 }
