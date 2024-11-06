@@ -15,18 +15,6 @@ enum MotorState
     INITIALIZED
 };
 
-struct ServoMotorRange
-{
-    int min;
-    int max;
-};
-
-struct PointCloudPoint {
-  float x;
-  float y;
-  float z;
-};
-
 enum EndScanReason {
   CANCEL,
   END
@@ -68,4 +56,21 @@ const std::unordered_map<JoyButton, JoyButtonPriority> BUTTON_PRIORITY_MAP = {
     {JoyButton::BUTTON_CANCEL, JoyButtonPriority::PRIORITY_CANCEL}
 };
 
+// STRUCTS
+struct ServoMotorRange
+{
+    int min;
+    int max;
+};
 
+struct PointCloudPoint {
+  float x;
+  float y;
+  float z;
+};
+
+struct ServoMotorConstants
+{
+  float minAngle;
+  float maxAngle;
+};
