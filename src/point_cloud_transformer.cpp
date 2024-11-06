@@ -68,7 +68,7 @@ void PointCloudTransformer::handleStartScan(
   notifyTransformerState();
 
   // @todo -> eliminate current pointCloud data
-
+  reset_ = true;
   inScan_ = true;
 }
 
@@ -157,7 +157,7 @@ void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan
 {
   //int count = scan->scan_time / scan->time_increment;
 
-  //LOG_ROS_ERROR(this, "New laserscan received: %s[%d]. Adjusting with processingType %d", scan->header.frame_id.c_str(), count, processingType_);
+  //LOG_ROS_INFO(this, "New laserscan received: %s[%d]. Adjusting with processingType %d", scan->header.frame_id.c_str(), count, processingType_);
   if (!inScan_)
   {
     return;
@@ -175,7 +175,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
   {
     return;
   }
-  //LOG_ROS_ERROR(this, "Updating point cloud");
+  //LOG_ROS_INFO(this, "Updating point cloud");
   std::vector<PointCloudPoint> points;
   float motorAngleInRad = DEG2RAD(currentAngle_);
   float angleMin = lidar_scan->angle_min;
@@ -207,7 +207,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
     }
   }
 
-  //LOG_ROS_ERROR(this, "Number of valid points: %zu", points.size());
+  //LOG_ROS_INFO(this, "Number of valid points: %zu", points.size());
 
   // Create and populate the PointCloud2 message
   PointCloud2 pointCloud2;
@@ -234,7 +234,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
     *iter_z = point.z;
     ++iter_x; ++iter_y; ++iter_z;
   }
-  //LOG_ROS_ERROR(this, "Final cumulative PointCloud2 size: %zu", cumulativePointCloud_.width);
+  //LOG_ROS_INFO(this, "Final cumulative PointCloud2 size: %zu", cumulativePointCloud_.width);
 
   if (inScan_)
   {
@@ -245,7 +245,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
     }
     else
     {
-      //LOG_ROS_ERROR(this, "Overriding current PointCloud2");
+      //LOG_ROS_INFO(this, "Overriding current PointCloud2");
       cumulativePointCloud_ = pointCloud2;
       reset_ = false;
     }
@@ -255,7 +255,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
 
 void PointCloudTransformer::appendToCumulativePointCloud(const PointCloud2& pointCloud2)
 {
-  //LOG_ROS_ERROR(this, "Appending to existing PointCloud2");
+  //LOG_ROS_INFO(this, "Appending to existing PointCloud2");
 
   if (cumulativePointCloud_.width == 0 || cumulativePointCloud_.height == 0)
   {
@@ -301,7 +301,7 @@ void PointCloudTransformer::appendToCumulativePointCloud(const PointCloud2& poin
 Result PointCloudTransformer::publishPointCloud()
 {
   Result result = RESULT_OK;
-  //LOG_ROS_ERROR(this, "publishing new pointCloud");
+  //LOG_ROS_INFO(this, "Publishing new pointCloud");
   pointCloudPublisher_->publish(cumulativePointCloud_);
 
   return result;
