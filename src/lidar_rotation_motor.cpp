@@ -31,8 +31,8 @@ LidarRotationMotor::LidarRotationMotor()
 
 LidarRotationMotor::~LidarRotationMotor()
 {
-  stopMotor();
-  delete pwmController_;
+  motor_->stopMotor();
+  delete motor_;
 }
 
 void LidarRotationMotor::initParameters ()
@@ -64,12 +64,6 @@ void LidarRotationMotor::initParameters ()
   this->get_parameter_or<int>("pwmFrequency", pwmFrequency_, 150);
 
   this->get_parameter_or<int>("sweepsPerScan", sweepsPerScan_, 1);
-  
-  ServoMotorRange range = getPwmRange();
-  minPwm_ = range.min;
-  maxPwm_ = range.max;
-  LOG_ROS_INFO(this, "minPwm: %d ms", minPwm_);
-  LOG_ROS_INFO(this, "maxPwm: %d ms", maxPwm_);
 
   float angleRange;
   this->get_parameter_or<float>("angleRange", angleRange, 180.0);
@@ -223,8 +217,7 @@ void LidarRotationMotor::updateAngle()
 
   if (!motorFakeMode_)
   {
-    uint32_t pwm = getPWMValueFromAngle(currentAngle_);
-    moveMotor(pwm);
+    motor_->moveMotor(currentAngle_);
   }
 }
 
@@ -236,9 +229,8 @@ void LidarRotationMotor::startOfScanActions()
   // Move the motor to initial angle
   if (!motorFakeMode_)
   {
-    uint32_t pwm = getPWMValueFromAngle(minAngle_);
     LOG_ROS_INFO(this, "Set initial angle");
-    moveMotor(pwm);
+    motor_->moveMotor(minAngle_);
     // Stabilization time
     rclcpp::sleep_for(std::chrono::seconds(1));
     LOG_ROS_INFO(this, "Motor set to initial angle");
@@ -253,25 +245,24 @@ void LidarRotationMotor::startOfScanActions()
 void LidarRotationMotor::endOfScanActions(EndScanReason endReason)
 {
     (void)endReason;
-    uint32_t pwm = getMotorIdlePwm();
+    float idleAngle = motor_->getMotorIdleAngle();
     if (!motorFakeMode_)
     {
-      moveMotor(pwm);
+      motor_->moveMotor(idleAngle);
     }
     inScan_ = false;
     currentScanSweep_ = 0;
-    currentAngle_ = getMotorIdleAngle();
+    currentAngle_ = idleAngle;
     LOG_ROS_INFO(this, "set to idle angle %f", currentAngle_);
 }
 
 Result LidarRotationMotor::resetAngle()
 {
-  float idleAngle = getMotorIdleAngle();
+  float idleAngle = motor_->getMotorIdleAngle();
   if (!motorFakeMode_)
   {
-    uint32_t pwm = getPWMValueFromAngle(idleAngle);
-    LOG_ROS_INFO(this, "Initializing motor. Set idle angle");
-    moveMotor(pwm);
+    LOG_ROS_INFO(this, "Initializing motor. Set idle angle %f", idleAngle);
+    motor_->moveMotor(idleAngle);
     // Stabilization time
     rclcpp::sleep_for(std::chrono::seconds(1));
     LOG_ROS_INFO(this, "Motor reset");
@@ -284,18 +275,14 @@ Result LidarRotationMotor::initializeMotor()
 {
   Result res;
 
-  pwmController_ = new PCA9685(I2C_BUS, PCA9685_ADDRESS);
-  if (pwmController_ == nullptr)
+  ServoMotorParams params{I2C_BUS, PCA9685_ADDRESS, SERVO_MOTOR_CHANNEL, minAngle_, maxAngle_};
+  motor_ = new ServoMotor(pwmFrequency_, params, this->get_name(), this->get_logger());
+
+  if (motor_ == nullptr)
   {
-    LOG_ROS_ERROR(this, "Failed to create pwm controller");
+    LOG_ROS_ERROR(this, "Failed to create motor");
     return Result::RESULT_ERROR;
   }
-  pwmController_->setPWMFreq(pwmFrequency_);  
-
-  if (calibrationMode_)
-  {
-    //Result res = pwmCalibration();
-  };
 
   res = resetAngle();
 
@@ -305,83 +292,6 @@ Result LidarRotationMotor::initializeMotor()
   }
 
   return res;
-}
-
-Result LidarRotationMotor::pwmCalibration()
-{
-  // @todo -> delete this function if there is no real use
-  /*
-  uint32_t step = 10;
-
-  LOG_ROS_INFO(this, "Press any key when you see motor movement to stop calibration.");
-
-  for (uint32_t i = MIN_PWM_VALUE; i <= MAX_PWM_VALUE; i+=step)
-  {
-    moveMotor(i);
-    LOG_ROS_INFO(this, "Current PWM: %d", i);
-    rclcpp::sleep_for(std::chrono::milliseconds(500));
-  }
-  LOG_ROS_INFO(this, "PWM Calibration finished");
-  */
-  return Result::RESULT_OK;
-}
-
-uint32_t LidarRotationMotor::getPWMValueFromAngle(float angle)
-{
-  uint32_t pwm = 0;
-
-  uint32_t pwmRange = (maxPwm_ - minPwm_);
-  float angleRange = maxAngle_ - minAngle_;
-
-  pwm = static_cast<uint32_t>(((angle - minAngle_) / angleRange) * pwmRange + minPwm_);
-
-  return pwm;
-}
-
-Result LidarRotationMotor::moveMotor(uint32_t pwm)
-{
-  // @todo -> implement extra verbose traces by launch param. false meanwhile.
-  if (false)
-  {
-    LOG_ROS_INFO(this, "set PWM to %d", pwm);
-  }
-  pwmController_->setPWM(1, pwm);
-  return Result::RESULT_OK;
-}
-
-float LidarRotationMotor::getMotorIdleAngle()
-{
-  return (minAngle_ + (maxAngle_ - minAngle_) / 2);
-}
-
-uint32_t LidarRotationMotor::getMotorIdlePwm()
-{
-  return getPWMValueFromAngle(getMotorIdleAngle());
-}
-
-Result LidarRotationMotor::stopMotor()
-{
-  pwmController_->setPWMFreq(pwmFrequency_);
-  LOG_ROS_INFO(this, "set PWM to %d", minPwm_);
-  pwmController_->setPWM(1, minPwm_);
-  rclcpp::sleep_for(std::chrono::milliseconds(500));
-  pwmController_->setPWM(1, 0);
-  return Result::RESULT_OK;
-}
-
-ServoMotorRange LidarRotationMotor::getPwmRange()
-{
-  // Calculate PWM values for minimum and maximum pulse widths
-  int min_value = std::round(pwmFrequency_ * MIN_PULSE_WIDTH * RESOLUTION_PCA9685);
-  int max_value = std::round(pwmFrequency_ * MAX_PULSE_WIDTH * RESOLUTION_PCA9685);
-
-  // Ensure values are within the valid range (0-4095)
-  min_value = std::max(0, std::min(RESOLUTION_PCA9685 - 1, min_value));
-  max_value = std::max(0, std::min(RESOLUTION_PCA9685 - 1, max_value));
-
-  LOG_ROS_INFO(this, "PWM range: %d - %d", min_value, max_value);
-
-  return {min_value, max_value};
 }
 
 int main(int argc, char * argv[])

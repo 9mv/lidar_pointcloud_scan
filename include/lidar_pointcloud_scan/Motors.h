@@ -26,11 +26,8 @@ public:
     static constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
     static constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
 
-    static constexpr int I2C_BUS = 1;
-    static constexpr int PCA9685_ADDRESS = 0x40;
-
-    ServoMotor(int pwmFrequency, ServoMotorConstants servoMotorConstants, std::string nodeName, rclcpp::Logger logger)
-        : IMotor(nodeName, logger), pwmFrequency_(pwmFrequency)
+    ServoMotor(int pwmFrequency, ServoMotorParams servoMotorParams, std::string nodeName, rclcpp::Logger logger)
+        : IMotor(nodeName, logger)
     {
         pwmController_ = new PCA9685(1, 0x40);
         if (pwmController_ == nullptr)
@@ -39,15 +36,17 @@ public:
             assert(0);
         }
 
-        LOG_ROS_INFO(this, "PWM Frequency: %d", pwmFrequency_);
-        LOG_ROS_INFO(this, "PCA9685 Address: %d", PCA9685_ADDRESS);
+        LOG_ROS_INFO(this, "ServoMotor constructor: PWM Frequency: %d, PCA9685 address: %d, i2c_bus %d", pwmFrequency_, servoMotorParams.controller_address, servoMotorParams.i2c_bus);
 
-        ServoMotorRange range = getPwmRange();
-        minPwm_ = range.min;
-        maxPwm_ = range.max;
+        if (servoMotorParams.channel != 0)
+        {
+            channel_ = servoMotorParams.channel;
+        }
 
-        minAngle_ = servoMotorConstants.minAngle;
-        maxAngle_ = servoMotorConstants.maxAngle;
+        setPwmFreq(pwmFrequency);
+
+        minAngle_ = servoMotorParams.minAngle;
+        maxAngle_ = servoMotorParams.maxAngle;
     }
 
     virtual ~ServoMotor() override
@@ -66,11 +65,11 @@ public:
         int pwm = getPWMValueFromAngle(angle);
 
         // @todo -> implement extra verbose traces by launch param. false meanwhile.
-        //if (extendedROSLogging_)
-        //{
+        if (extendedROSLogging_)
+        {
             //LOG_ROS_INFO(this, "Set PWM to %d", pwm);
-        //}
-        pwmController_->setPWM(1, pwm);
+        }
+        pwmController_->setPWM(channel_, pwm);
         rclcpp::sleep_for(std::chrono::milliseconds(100));
         int pwm_now = pwmController_->getPWM(1);
         LOG_ROS_INFO(this, "angle %f, pwm_now: %d", angle, pwm_now);
@@ -84,15 +83,15 @@ public:
     */
     Result stopMotor() override
     {
-        pwmController_->setPWM(1, minPwm_);
+        pwmController_->setPWM(channel_, minPwm_);
         rclcpp::sleep_for(std::chrono::milliseconds(500));
-        pwmController_->setPWM(1, 0);
+        pwmController_->setPWM(channel_, 0);
         return RESULT_OK;
     }
 
     Result setPwm(int pwm)
     {
-        pwmController_->setPWM(1, pwm);
+        pwmController_->setPWM(channel_, pwm);
         if (extendedROSLogging_)
         {
             LOG_ROS_INFO(this, "Set PWM to %d", minPwm_);
@@ -141,6 +140,8 @@ public:
     {
         LOG_ROS_INFO(this, "Set PWM Frequency to %d", frequency);
         pwmFrequency_ = frequency;
+
+        pwmController_->setPWMFreq(frequency);
         
         ServoMotorRange range = getPwmRange();
         minPwm_ = range.min;
@@ -172,11 +173,15 @@ public:
 
 
 private:
+    // Servo driver board
     PCA9685* pwmController_;
+
     uint32_t pwmFrequency_;
 
     uint32_t minPwm_ = 0;
     uint32_t maxPwm_ = 0;
+
+    uint8_t channel_ = 0;
 
     float minAngle_ = 0;
     float maxAngle_ = 0;

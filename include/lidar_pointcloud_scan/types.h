@@ -1,3 +1,4 @@
+#include <cstdint>
 // MACROS
 #define LOG_ROS_ERROR(node, format, ...) RCLCPP_ERROR(node->get_logger(), "%s/%s(): " format, node->get_name(), __func__, ##__VA_ARGS__)
 #define LOG_ROS_INFO(node, format, ...) RCLCPP_INFO(node->get_logger(), "%s/%s(): " format, node->get_name(), __func__, ##__VA_ARGS__)
@@ -69,8 +70,11 @@ struct PointCloudPoint {
   float z;
 };
 
-struct ServoMotorConstants
+struct ServoMotorParams
 {
+  uint32_t i2c_bus;
+  uint32_t controller_address;
+  uint8_t channel = 0;
   float minAngle;
   float maxAngle;
 };
