@@ -36,10 +36,19 @@ void PointCloudTransformer::initParameters ()
   // Declare parameters
   this->declare_parameter<bool>("appendMode", false);
   this->declare_parameter<int>("processingType", 0);
+  this->declare_parameter<int>("updateBuffer", 10);
 
   // Get parameters
   this->get_parameter<bool>("appendMode", appendMode_);
   LOG_ROS_INFO(this, "appendMode: %s", appendMode_ ? "true" : "false");
+
+  this->get_parameter_or<int>("updateBuffer", updateBuffer_, 10);
+  LOG_ROS_INFO(this, "updateBuffer: %d", updateBuffer_);
+  if (updateBuffer_ < 1)
+  {
+    LOG_ROS_ERROR(this, "Invalid update buffer value: must be positive");
+    rclcpp::shutdown();
+  }
 
   int processingType;
   this->get_parameter_or<int>("processingType", processingType, 0);
@@ -69,6 +78,7 @@ void PointCloudTransformer::handleStartScan(
 
   // @todo -> eliminate current pointCloud data
   reset_ = true;
+  currentBuffer_ = 0;
   inScan_ = true;
 }
 
@@ -131,6 +141,10 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
 
   if (reason == EndScanReason::END)
   {
+    // Publish remaining points
+    publishPointCloud();
+    dumpScanToFile("");
+
     LOG_ROS_INFO(this, "Scan COMPLETE");
     
     // @todo -> necessito notificar a algú que ha acabat i com?
@@ -143,6 +157,12 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
   state_ = TRANSFORMER_NOT_READY;
   notifyTransformerState();
   inScan_ = false;
+}
+
+Result PointCloudTransformer::dumpScanToFile(std::string filePath)
+{
+  (void) filePath;
+  return RESULT_OK;
 }
 
 void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::msg::Angle::SharedPtr msg)
@@ -242,6 +262,7 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
     {
       // Append pointCloud2 to cumulativePointCloud_
       appendToCumulativePointCloud(pointCloud2);
+      currentBuffer_++;
     }
     else
     {
@@ -249,7 +270,13 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
       cumulativePointCloud_ = pointCloud2;
       reset_ = false;
     }
-    publishPointCloud();
+
+    if (appendMode_ && static_cast<int>(currentBuffer_) == updateBuffer_)
+    {
+      LOG_ROS_INFO(this, "Publishing point cloud data.");
+      publishPointCloud();
+      currentBuffer_ = 0;
+    }
   }
 }
 

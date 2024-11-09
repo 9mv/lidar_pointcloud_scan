@@ -169,7 +169,7 @@ void DeviceOrchestrator::motorScanGoalResponse(const GoalHandleMotorScan::Shared
 
 void DeviceOrchestrator::motorScanFeedbackCallback(GoalHandleMotorScan::SharedPtr goalHandle, const std::shared_ptr<const MotorScan::Feedback> feedback)
 {
-    LOG_ROS_INFO(this, "Current scan angle: %f", feedback->angle);
+    //LOG_ROS_INFO(this, "Current scan angle: %f", feedback->angle);
     (void)goalHandle;
 }
 

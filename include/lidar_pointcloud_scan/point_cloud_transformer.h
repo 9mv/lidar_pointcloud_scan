@@ -68,6 +68,13 @@ private:
     */
     void stopScan (EndScanReason reason);
 
+    /*
+    * Dump the current scan to a point cloud file.
+    * @param filePath: path to the file where the scan will be saved.
+    * @return: RESULT_OK if the file is saved successfully, RESULT_ERROR otherwise.
+    */
+    Result dumpScanToFile(std::string filePath);
+
     // Transformer state service
     /*
     * Notify the transformer state to the rotation motor.
@@ -103,6 +110,12 @@ private:
   // Append mode will accumulate the point cloud
   // instead of replacing it
   bool appendMode_ = true;
+
+  // PointCloud publish buffer of scans
+  int updateBuffer_ = 50;
+  
+  // Current buffer number of scans
+  uint32_t currentBuffer_ = 0;
 
   // Publish LaserScan or PointCloud events
   ProcessingType processingType_ = LASER_SCAN_PROCESSING;

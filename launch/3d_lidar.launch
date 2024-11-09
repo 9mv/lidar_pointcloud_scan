@@ -20,7 +20,8 @@
   <!-- point_cloud_transformer -->
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
   <arg name="processingType" default="0"/>
-
+  <arg name="updateBuffer" default="50"/>
+  
   <!-- keyboard -->
   <arg name="allowRepeat" default="false"/>
   <arg name="repeatDelay" default="30"/>
@@ -60,6 +61,7 @@
   <node pkg="lidar_pointcloud_scan" exec="point_cloud_transformer" name="point_cloud_transformer" output="screen">
     <param name="appendMode" value="$(var appendMode)"/>
     <param name="processingType" value="$(var processingType)"/>
+    <param name="updateBuffer" value="$(var updateBuffer)"/>
   </node>
 
     <!-- device_orchestrator -->

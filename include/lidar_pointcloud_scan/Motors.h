@@ -67,13 +67,9 @@ public:
         // @todo -> implement extra verbose traces by launch param. false meanwhile.
         if (extendedROSLogging_)
         {
-            //LOG_ROS_INFO(this, "Set PWM to %d", pwm);
+            LOG_ROS_INFO(this, "Set motor to angle %f, PWM: %d", angle, pwm);
         }
         pwmController_->setPWM(channel_, pwm);
-        rclcpp::sleep_for(std::chrono::milliseconds(100));
-        int pwm_now = pwmController_->getPWM(1);
-        LOG_ROS_INFO(this, "angle %f, pwm_now: %d", angle, pwm_now);
-        LOG_ROS_INFO(this, "pwmFrequency: %d", pwmFrequency_);
         return RESULT_OK;
     }
 
@@ -186,5 +182,5 @@ private:
     float minAngle_ = 0;
     float maxAngle_ = 0;
 
-    bool extendedROSLogging_ = true;
+    bool extendedROSLogging_ = false;
 };
