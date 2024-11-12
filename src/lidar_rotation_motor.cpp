@@ -31,7 +31,10 @@ LidarRotationMotor::LidarRotationMotor()
 
 LidarRotationMotor::~LidarRotationMotor()
 {
-  motor_->stopMotor();
+  if (!motorFakeMode_)
+  {
+    motor_->stopMotor();  
+  }
   delete motor_;
 }
 
