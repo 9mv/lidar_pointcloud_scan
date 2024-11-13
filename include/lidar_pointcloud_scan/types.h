@@ -1,3 +1,5 @@
+#ifndef LIDAR_POINTCLOUD_SCAN_TYPES_H
+#define LIDAR_POINTCLOUD_SCAN_TYPES_H
 #include <cstdint>
 // MACROS
 #define LOG_ROS_ERROR(node, format, ...) RCLCPP_ERROR(node->get_logger(), "%s/%s(): " format, node->get_name(), __func__, ##__VA_ARGS__)
@@ -16,37 +18,52 @@ enum MotorState
     INITIALIZED
 };
 
-enum EndScanReason {
+enum EndScanReason 
+{
   CANCEL,
   END
 };
 
-enum ProcessingType {
+enum ProcessingType 
+{
   POINT_CLOUD_PROCESSING,
   LASER_SCAN_PROCESSING
 };
 
-enum JoyButtonPriority {
+enum JoyButtonPriority 
+{
   PRIORITY_UNSET = -1,
   PRIORITY_SCAN = 0,
   PRIORITY_CANCEL = 1
 };
 
-enum JoyButton{
+enum JoyButton
+{
   BUTTON_NONE = -1,
   BUTTON_SPACE = 0,
   BUTTON_SCAN = 1,
   BUTTON_CANCEL = 2
 };
 
-enum MotorDirection{
+enum MotorDirection
+{
   DIRECTION_FORWARD,
   DIRECTION_REVERSE
 };
 
-enum PointCloudTransformerState{
+enum PointCloudTransformerState
+{
   TRANSFORMER_NOT_READY,
   TRANSFORMER_READY
+};
+
+enum MotorIdentification
+{
+  MOTOR_UNKNOWN,
+  MOTOR_FRONT_LEFT,
+  MOTOR_FRONT_RIGHT,
+  MOTOR_BACK_LEFT,
+  MOTOR_BACK_RIGHT
 };
 
 // CONSTANTS
@@ -58,7 +75,7 @@ const std::unordered_map<JoyButton, JoyButtonPriority> BUTTON_PRIORITY_MAP = {
 };
 
 // STRUCTS
-struct ServoMotorRange
+struct PwmRange
 {
     int min;
     int max;
@@ -78,3 +95,14 @@ struct ServoMotorParams
   float minAngle;
   float maxAngle;
 };
+
+struct DcMotorParams
+{
+  int forwardGpio;
+  int reverseGpio;
+  int speedPwmChannel;
+  bool hasEncoder;
+  int encoderGpio;
+};
+
+#endif // LIDAR_POINTCLOUD_SCAN_TYPES_H
