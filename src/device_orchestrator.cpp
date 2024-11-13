@@ -17,7 +17,21 @@ DeviceOrchestrator::DeviceOrchestrator()
         "joy", 10,
         std::bind(&DeviceOrchestrator::joyCallback, this, std::placeholders::_1)
     );
-
+    
+    robotController_ = new RobotController(this->get_logger());
+    if (robotController_ == nullptr)
+    {
+        LOG_ROS_ERROR(this, "Failed to create robot controller");
+        rclcpp::shutdown();
+    }
+    
+    // TEMPORAL TEST CODE TO TEST MOTOR
+    rclcpp::sleep_for(std::chrono::seconds(2));
+    robotController_->move();
+    rclcpp::sleep_for(std::chrono::seconds(1));
+    robotController_->stop();
+    // END TEST CODE
+    
 }
 
 void DeviceOrchestrator::initParameters ()
@@ -171,6 +185,7 @@ void DeviceOrchestrator::motorScanFeedbackCallback(GoalHandleMotorScan::SharedPt
 {
     //LOG_ROS_INFO(this, "Current scan angle: %f", feedback->angle);
     (void)goalHandle;
+    (void)feedback;
 }
 
 void DeviceOrchestrator::motorScanResultCallback(const GoalHandleMotorScan::WrappedResult & result)
@@ -229,67 +244,15 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
                 break;
         }
     }
-    /*
-    // @todo -> implement for the vehicle control
-    for (size_t i = 0; i < msg->axes.size(); ++i)
-    {
-        if (std::abs(msg->axes[i]) > AXIS_THRESHOLD)
-        {
-            LOG_ROS_INFO(this, "Axis %zu activated: %f", i, msg->axes[i]);
-            
-            // You can add specific actions for different axes here
-            switch(i)
-            {
-                case 0:
-                LOG_ROS_INFO(this, "Left Stick Horizontal: %f", msg->axes[i]);
-                break;
-                case 1:
-                LOG_ROS_INFO(this, "Left Stick Vertical: %f", msg->axes[i]);
-                break;
-                case 2:
-                LOG_ROS_INFO(this, "Left Trigger: %f", msg->axes[i]);
-                break;
-                case 3:
-                LOG_ROS_INFO(this, "Right Stick Horizontal: %f", msg->axes[i]);
-                break;
-                case 4:
-                LOG_ROS_INFO(this, "Right Stick Vertical: %f", msg->axes[i]);
-                break;
-                case 5:
-                LOG_ROS_INFO(this, "Right Trigger: %f", msg->axes[i]);
-                break;
-                default:
-                LOG_ROS_INFO(this, "Unknown Axis %zu: %f", i, msg->axes[i]);
-            }
-        }
-    }
-    */
-}
 
-JoyButton DeviceOrchestrator::getPressedButton (const sensor_msgs::msg::Joy::SharedPtr msg)
-{
-    JoyButton pressedButton = JoyButton::BUTTON_NONE;
-    JoyButtonPriority highestPriority = JoyButtonPriority::PRIORITY_UNSET;
+    JoyCoordinates axisInformation;
+    axisInformation.x = (std::abs(msg->axes[0]) > AXIS_THRESHOLD) ? msg->axes[0] : 0;
+    axisInformation.y = (std::abs(msg->axes[1]) > AXIS_THRESHOLD) ? msg->axes[1] : 0;
+    LOG_ROS_INFO(this, "Axis x: %f, y: %f", axisInformation.x, axisInformation.y);
 
-    // Handle multiple buttons pressed at the same time through a priority system
-    for (size_t i = 0; i < msg->buttons.size(); ++i)
-    {
-        if (msg->buttons[i] == 1)
-        {
-            JoyButton currentButton = static_cast<JoyButton>(i);
-            auto it = BUTTON_PRIORITY_MAP.find(currentButton);
-            if (it != BUTTON_PRIORITY_MAP.end())
-            {
-                JoyButtonPriority currentPriority = it->second;
-                if (static_cast<int>(currentPriority) > static_cast<int>(highestPriority))
-                {
-                    highestPriority = currentPriority;
-                    pressedButton = currentButton;
-                }
-            }
-        }
-    }
-    return pressedButton;
+
+    // @todo - not ready
+    //robotController_->move(axisInformation);
 }
 
 int main(int argc, char * argv[])

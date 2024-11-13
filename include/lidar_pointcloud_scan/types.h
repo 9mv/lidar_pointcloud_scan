@@ -62,8 +62,8 @@ enum MotorIdentification
   MOTOR_UNKNOWN,
   MOTOR_FRONT_LEFT,
   MOTOR_FRONT_RIGHT,
-  MOTOR_BACK_LEFT,
-  MOTOR_BACK_RIGHT
+  MOTOR_REAR_LEFT,
+  MOTOR_REAR_RIGHT
 };
 
 // CONSTANTS
@@ -89,8 +89,6 @@ struct PointCloudPoint {
 
 struct ServoMotorParams
 {
-  uint32_t i2c_bus;
-  uint32_t controller_address;
   uint8_t channel = 0;
   float minAngle;
   float maxAngle;

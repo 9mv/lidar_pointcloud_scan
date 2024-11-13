@@ -69,6 +69,18 @@ void PCA9685::setPWMFreq(int freq) {
 		i2c->write_byte(MODE2, 0x04); //totem pole (default)
 }
 
+//! Get the frequency of PWM
+/*!
+ \return frequency of PWM in Hz
+ */
+int PCA9685::getPWMFreq() {
+	i2c->write_byte(MODE1, 0x10); //sleep
+	int prescale_val = i2c->read_byte(PRE_SCALE);
+	i2c->write_byte(MODE1, 0x80); //restart
+	i2c->write_byte(MODE2, 0x04); //totem pole (default)
+	return (int)(CLOCK_FREQ / RESOLUTION_PCA9685 / (prescale_val + 1));
+}
+
 //! PWM a single channel
 /*!
  \param led channel (1-16) to set PWM value for

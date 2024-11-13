@@ -278,8 +278,8 @@ Result LidarRotationMotor::initializeMotor()
 {
   Result res;
 
-  ServoMotorParams params{I2C_BUS, PCA9685_ADDRESS, SERVO_MOTOR_CHANNEL, minAngle_, maxAngle_};
-  motor_ = new ServoMotor(pwmFrequency_, params, this->get_name(), this->get_logger());
+  ServoMotorParams params{SERVO_MOTOR_CHANNEL, minAngle_, maxAngle_};
+  motor_ = new ServoMotor(params, this->get_name(), this->get_logger()); //@todo -> delete pwmFrequency_ from node params
 
   if (motor_ == nullptr)
   {

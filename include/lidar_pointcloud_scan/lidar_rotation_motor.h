@@ -28,9 +28,6 @@ constexpr float ANGLE_RANGE = 180.0;
 constexpr uint32_t MIN_PWM_VALUE = 0;
 constexpr uint32_t MAX_PWM_VALUE = 4095;
 
-constexpr int I2C_BUS = 1;
-constexpr int PCA9685_ADDRESS = 0x40;
-
 constexpr uint8_t FEEDBACK_PROVIDER_LOOP_RATE = 10;
 constexpr uint8_t SERVO_MOTOR_CHANNEL = 1;
 

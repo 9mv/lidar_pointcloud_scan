@@ -1,8 +1,9 @@
 #include <memory>
-#include "PCA9685/PCA9685.h"
+#include "PCA9685/PCA9685Manager.h"
 #include "lidar_pointcloud_scan/types.h"
 #include "rclcpp/rclcpp.hpp"
 #include "rclcpp/logger.hpp"
+#include <wiringPi.h>
 
 // IMotor interface with some common motor functions
 class IMotor {
@@ -15,10 +16,98 @@ public:
     virtual Result moveMotor(float pos) = 0;
 
     virtual Result stopMotor() = 0;
+
+    // For logging purposes
+    rclcpp::Logger get_logger() const { return rosLogger_; }
+    const char* get_name() const { return nodeName_.c_str(); }
 protected:
     std::string nodeName_;
     rclcpp::Logger rosLogger_;
 };
+
+class DcMotor : public IMotor
+{
+public:
+
+    static constexpr double MAX_SPEED = 255.0;
+    static constexpr int PCA9685_PWM_MAX = 4096;
+
+    DcMotor(DcMotorParams motorParams, std::string motorInstanceName, rclcpp::Logger logger)
+        : IMotor(motorInstanceName, logger), speedPwmChannel_(motorParams.speedPwmChannel), forwardGpio_(motorParams.forwardGpio), reverseGpio_(motorParams.reverseGpio)
+    {
+        pwmController_ = PCA9685Manager::getInstance();
+        if (pwmController_ == nullptr)
+        {
+            LOG_ROS_ERROR(this, "Failed to get PWM controller");
+            assert(0);
+        }
+
+        // Configure Raspberry GPIOs
+        LOG_ROS_INFO(this, "Configuring GPIOs: forward %d, reverse %d and pwmChannel %d", forwardGpio_, reverseGpio_, motorParams.speedPwmChannel);
+        wiringPiSetupGpio();
+        pinMode(forwardGpio_, OUTPUT);
+        pinMode(reverseGpio_, OUTPUT);
+        if (motorParams.hasEncoder)
+        {
+            LOG_ROS_INFO(this, "Configuring GPIOs: encoder gpio %d", motorParams.encoderGpio);
+            pinMode(motorParams.encoderGpio, INPUT);
+
+            // @todo -> set encoder callbacks? Pending to see if the system will have encoders
+            //pullUpDnControl(motorParams.encoderGpio, PUD_UP);
+            //wiringPiISR(motorParams.encoderGpio, INT_EDGE_RISING, &DcMotor::encoderCallback);
+            
+        }
+
+    }
+
+    virtual ~DcMotor() override
+    {
+        stopMotor();
+    }
+    
+    //void encoderCallback()
+    //{
+
+    //}
+    
+
+    Result moveMotor(MotorDirection direction, uint8_t speed)
+    {
+        // Get PWM for the desired speed: speed = 0 -> min Pwm / speed = 255 -> max Pwm
+        uint32_t controllerSpeed = std::round(PCA9685_PWM_MAX * (speed / MAX_SPEED));
+
+        LOG_ROS_INFO(this, "Moving motor: direction %d, speed %d, controllerSpeed %d", direction, speed, controllerSpeed);
+
+        pwmController_->setPWM(speedPwmChannel_, controllerSpeed);
+
+        digitalWrite(forwardGpio_, (direction == MotorDirection::DIRECTION_FORWARD) ? 1 : 0);
+        digitalWrite(reverseGpio_, (direction == MotorDirection::DIRECTION_REVERSE) ? 1 : 0);
+
+        return RESULT_OK;
+    }
+
+    Result moveMotor(float speed) override
+    {
+        (void)speed;
+        return RESULT_OK;
+    }
+
+    Result stopMotor() override
+    {
+        digitalWrite(forwardGpio_, 0);
+        digitalWrite(reverseGpio_, 0);
+        pwmController_->setPWM(speedPwmChannel_, 0);
+        return RESULT_OK;
+    }
+
+private:
+    std::shared_ptr<PCA9685> pwmController_;
+
+    int speedPwmChannel_;
+    int forwardGpio_;
+    int reverseGpio_;
+};
+
 
 class ServoMotor : public IMotor
 {
@@ -26,24 +115,28 @@ public:
     static constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
     static constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
 
-    ServoMotor(int pwmFrequency, ServoMotorParams servoMotorParams, std::string nodeName, rclcpp::Logger logger)
+    ServoMotor(ServoMotorParams servoMotorParams, std::string nodeName, rclcpp::Logger logger)
         : IMotor(nodeName, logger)
     {
-        pwmController_ = new PCA9685(1, 0x40);
+        pwmController_ = PCA9685Manager::getInstance();
         if (pwmController_ == nullptr)
         {
             LOG_ROS_ERROR(this, "Failed to create PWM controller");
             assert(0);
         }
 
-        LOG_ROS_INFO(this, "ServoMotor constructor: PWM Frequency: %d, PCA9685 address: %d, i2c_bus %d", pwmFrequency_, servoMotorParams.controller_address, servoMotorParams.i2c_bus);
+        LOG_ROS_INFO(this, "ServoMotor constructor");
 
         if (servoMotorParams.channel != 0)
         {
             channel_ = servoMotorParams.channel;
         }
 
-        setPwmFreq(pwmFrequency);
+        LOG_ROS_INFO(this, "PWM Frequency %d", pwmController_->getPWMFreq());
+        
+        PwmRange range = getPwmRange();
+        minPwm_ = range.min;
+        maxPwm_ = range.max;
 
         minAngle_ = servoMotorParams.minAngle;
         maxAngle_ = servoMotorParams.maxAngle;
@@ -52,7 +145,6 @@ public:
     virtual ~ServoMotor() override
     {
         stopMotor();
-        delete pwmController_;
     }
 
     /*
@@ -96,11 +188,13 @@ public:
         return RESULT_OK;
     }
 
-    ServoMotorRange getPwmRange()
+    PwmRange getPwmRange()
     {
         // Calculate PWM values for minimum and maximum pulse widths
-        int minValue = std::round(pwmFrequency_ * MIN_PULSE_WIDTH * RESOLUTION_PCA9685);
-        int maxValue = std::round(pwmFrequency_ * MAX_PULSE_WIDTH * RESOLUTION_PCA9685);
+        int freq = pwmController_->getPWMFreq();
+        LOG_ROS_INFO(this, "PWM Frequency %d", freq);
+        int minValue = std::round(freq * MIN_PULSE_WIDTH * RESOLUTION_PCA9685);
+        int maxValue = std::round(freq * MAX_PULSE_WIDTH * RESOLUTION_PCA9685);
 
         // Ensure values are within the valid range (0-4095)
         minValue = std::max(0, std::min(RESOLUTION_PCA9685 - 1, minValue));
@@ -132,18 +226,6 @@ public:
         return pwm;
     }
 
-    void setPwmFreq(int frequency)
-    {
-        LOG_ROS_INFO(this, "Set PWM Frequency to %d", frequency);
-        pwmFrequency_ = frequency;
-
-        pwmController_->setPWMFreq(frequency);
-        
-        ServoMotorRange range = getPwmRange();
-        minPwm_ = range.min;
-        maxPwm_ = range.max;
-    }
-
     /*
     * Get the idle angle of the motor
     * @return float: idle angle
@@ -163,16 +245,9 @@ public:
         return getPWMValueFromAngle(getMotorIdleAngle());
     }
 
-    // For logging purposes
-    rclcpp::Logger get_logger() const { return rosLogger_; }
-    const char* get_name() const { return nodeName_.c_str(); }
-
-
 private:
     // Servo driver board
-    PCA9685* pwmController_;
-
-    uint32_t pwmFrequency_;
+    std::shared_ptr<PCA9685> pwmController_;
 
     uint32_t minPwm_ = 0;
     uint32_t maxPwm_ = 0;

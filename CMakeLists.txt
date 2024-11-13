@@ -11,7 +11,10 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+
+find_library(WIRINGPI_LIBRARIES NAMES wiringPi)
 
 set(msg_files
   "msg/Angle.msg"
@@ -51,7 +54,10 @@ ament_target_dependencies(point_cloud_transformer
   sensor_msgs
   )
 
-add_executable(device_orchestrator src/device_orchestrator.cpp)
+add_executable(device_orchestrator src/device_orchestrator.cpp
+  include/I2C/I2C.cpp
+  include/PCA9685/PCA9685.cpp
+)
 ament_target_dependencies(device_orchestrator 
   rclcpp
   rclcpp_action
@@ -90,9 +96,18 @@ target_compile_features(device_orchestrator PUBLIC c_std_99 cxx_std_17)  # Requi
 rosidl_get_typesupport_target(cpp_typesupport_target
   ${PROJECT_NAME} rosidl_typesupport_cpp)
 
-target_link_libraries(lidar_rotation_motor "${cpp_typesupport_target}")
-target_link_libraries(point_cloud_transformer "${cpp_typesupport_target}")
-target_link_libraries(device_orchestrator "${cpp_typesupport_target}")
+target_link_libraries(lidar_rotation_motor 
+  "${cpp_typesupport_target}"
+)
+
+target_link_libraries(point_cloud_transformer 
+  "${cpp_typesupport_target}"
+)
+
+target_link_libraries(device_orchestrator 
+  "${cpp_typesupport_target}"
+  wiringPi
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)

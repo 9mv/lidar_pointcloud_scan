@@ -53,6 +53,7 @@ public:
 	virtual ~PCA9685();
 
 	void setPWMFreq(int);
+	int getPWMFreq();
 	void setPWM(uint8_t, int, int);
 	void setPWM(uint8_t, int);
 	int getPWM(uint8_t);

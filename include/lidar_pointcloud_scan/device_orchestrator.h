@@ -10,13 +10,13 @@
 #include "lidar_pointcloud_scan/srv/start_scan.hpp"
 #include "lidar_pointcloud_scan/srv/stop_scan.hpp"
 #include "lidar_pointcloud_scan/action/motor_scan.hpp"
-#include "lidar_pointcloud_scan/types.h"
-#include "sensor_msgs/msg/joy.hpp"
+#include "lidar_pointcloud_scan/JoyUtils.h"
+#include "lidar_pointcloud_scan/Robot.h"
 
 #define RAD2DEG(x) ((x)*180./M_PI)
 #define DEG2RAD(x) ((x)*M_PI/180.)
 
-constexpr double AXIS_THRESHOLD = 0.5;
+constexpr double AXIS_THRESHOLD = 0.1;
 
 using StartScanService = lidar_pointcloud_scan::srv::StartScan;
 using StopScanService = lidar_pointcloud_scan::srv::StopScan;
@@ -61,7 +61,6 @@ private:
 
     // Keyboard/Joy control
     void joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg);
-    JoyButton getPressedButton (const sensor_msgs::msg::Joy::SharedPtr msg);
 
 // Private attributes
 private:
@@ -75,6 +74,9 @@ private:
     // Service Clients
     rclcpp::Client<StartScanService>::SharedPtr startScanServiceTransformer_;
     rclcpp::Client<StopScanService>::SharedPtr stopScanServiceTransformer_;
+
+    // Robot controller
+    RobotController* robotController_ = nullptr;
 
     // Scan state attribute
     bool inScan_ = false;
