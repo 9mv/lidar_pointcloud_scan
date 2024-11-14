@@ -130,9 +130,6 @@ private:
     // Low Level motor
     ServoMotor* motor_ = nullptr;
 
-    //@todo -> temporal to test. DELETE
-    bool go = true;
-
     // State of the motor
     MotorState motorState_ = UNINITIALIZED;
 
