@@ -59,7 +59,6 @@ enum PointCloudTransformerState
 
 enum MotorIdentification
 {
-  MOTOR_UNKNOWN,
   MOTOR_FRONT_LEFT,
   MOTOR_FRONT_RIGHT,
   MOTOR_REAR_LEFT,

@@ -25,13 +25,6 @@ DeviceOrchestrator::DeviceOrchestrator()
         rclcpp::shutdown();
     }
     
-    // TEMPORAL TEST CODE TO TEST MOTOR
-    rclcpp::sleep_for(std::chrono::seconds(2));
-    robotController_->move();
-    rclcpp::sleep_for(std::chrono::seconds(1));
-    robotController_->stop();
-    // END TEST CODE
-    
 }
 
 void DeviceOrchestrator::initParameters ()

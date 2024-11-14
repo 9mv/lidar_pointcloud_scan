@@ -1,6 +1,7 @@
 #include "lidar_pointcloud_scan/Motors.h"
 #include "geometry_msgs/msg/point32.hpp"
 #include <array>
+#include <thread>
 
 using JoyCoordinates = geometry_msgs::msg::Point32;
 
@@ -24,6 +25,8 @@ public:
         motorFR_ = new DcMotor(motorConfigs[MOTOR_FRONT_RIGHT], "WheelMotorFrontRight", nodeLogger_);
         motorRL_ = new DcMotor(motorConfigs[MOTOR_REAR_LEFT], "WheelMotorRearLeft", nodeLogger_);
         motorRR_ = new DcMotor(motorConfigs[MOTOR_REAR_RIGHT], "WheelMotorRearRight", nodeLogger_);
+
+        initializeMotors();
     }
 
 	~RobotController()
@@ -51,6 +54,21 @@ public:
         motorFL_->stopMotor();
         return RESULT_OK;
         // END TEST CODE
+    }
+
+    Result initializeMotors()
+    {
+        LOG_ROS_INFO(this, "Initializing motors");
+        std::thread t1FL(&DcMotor::initializeMotor, motorFL_);
+        //std::thread t1FR(&DcMotor::initializeMotor, motorFR_);
+        //std::thread t1RL(&DcMotor::initializeMotor, motorRL_);
+        //std::thread t1RR(&DcMotor::initializeMotor, motorRR_);
+
+        t1FL.join();
+        //t1FR.join();
+        //t1RL.join();
+        //t1RR.join();
+        return RESULT_OK;
     }
 
     rclcpp::Logger get_logger() const { return nodeLogger_; }

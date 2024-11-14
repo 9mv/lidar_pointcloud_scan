@@ -73,15 +73,30 @@ public:
 
     Result moveMotor(MotorDirection direction, uint8_t speed)
     {
+        if (speed == 0)
+        {
+            stopMotor();
+            return RESULT_OK;
+        }
         // Get PWM for the desired speed: speed = 0 -> min Pwm / speed = 255 -> max Pwm
         uint32_t controllerSpeed = std::round(PCA9685_PWM_MAX * (speed / MAX_SPEED));
-
-        LOG_ROS_INFO(this, "Moving motor: direction %d, speed %d, controllerSpeed %d", direction, speed, controllerSpeed);
-
+        if (extendedROSLogging_)
+        {
+            LOG_ROS_INFO(this, "Moving motor: direction %d, speed %d, controllerSpeed %d", direction, speed, controllerSpeed);
+        }
         pwmController_->setPWM(speedPwmChannel_, controllerSpeed);
 
         digitalWrite(forwardGpio_, (direction == MotorDirection::DIRECTION_FORWARD) ? 1 : 0);
         digitalWrite(reverseGpio_, (direction == MotorDirection::DIRECTION_REVERSE) ? 1 : 0);
+
+        if (extendedROSLogging_)
+        {
+            int forwardValue = digitalRead(forwardGpio_);
+            int reverseValue = digitalRead(reverseGpio_);
+            int pwm = pwmController_->getPWM(speedPwmChannel_);
+            
+            LOG_ROS_INFO(this, "GPIO Status - Forward GPIO(%d): %d, Reverse GPIO(%d): %d and the PWM for speed is %d", forwardGpio_, forwardValue, reverseGpio_, reverseValue, pwm);
+        }
 
         return RESULT_OK;
     }
@@ -100,12 +115,47 @@ public:
         return RESULT_OK;
     }
 
+    Result initializeMotor() 
+    {
+        moveMotor(MotorDirection::DIRECTION_FORWARD, 0);
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        moveMotor(MotorDirection::DIRECTION_REVERSE, 0);
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_FORWARD, MAX_SPEED/2);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_FORWARD, MAX_SPEED);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_FORWARD, 0);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_REVERSE, MAX_SPEED/2);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_REVERSE, MAX_SPEED);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+
+        moveMotor(MotorDirection::DIRECTION_REVERSE, 0);
+        // @todo -> check encoder?
+        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        return RESULT_OK;
+    }
+
 private:
     std::shared_ptr<PCA9685> pwmController_;
 
     int speedPwmChannel_;
     int forwardGpio_;
     int reverseGpio_;
+
+    bool extendedROSLogging_ = false;
 };
 
 
