@@ -7,6 +7,8 @@ using JoyCoordinates = geometry_msgs::msg::Point32;
 
 constexpr int NUM_MOTORS = 4;
 
+constexpr float CHANGE_THRESHOLD = 0.1f;
+
 constexpr std::array<DcMotorParams, NUM_MOTORS> motorConfigs = 
 {{
     //  FORWARD GPIO        REVERSE GPIO    PWM CHANNEL     HAS_ENCODER/ENCODER GPIO (-1 if not, for clarity)
@@ -25,8 +27,6 @@ public:
         motorFR_ = new DcMotor(motorConfigs[MOTOR_FRONT_RIGHT], "WheelMotorFrontRight", nodeLogger_);
         motorRL_ = new DcMotor(motorConfigs[MOTOR_REAR_LEFT], "WheelMotorRearLeft", nodeLogger_);
         motorRR_ = new DcMotor(motorConfigs[MOTOR_REAR_RIGHT], "WheelMotorRearRight", nodeLogger_);
-
-        initializeMotors();
     }
 
 	~RobotController()
@@ -34,53 +34,94 @@ public:
 
     Result move(const JoyCoordinates& axisInformation)
     {
-        getMotorParamsFromJoy(axisInformation);
-        return RESULT_OK;
-    }
+        RobotMotorSpeeds robotSpeeds = getMotorParamsFromJoy(axisInformation);
 
-    // TEMPORAL TEST CODE TO TEST MOTOR
-    Result move()
-    {
-        LOG_ROS_INFO(this,"[TEST] Move command");
-        motorFL_->moveMotor(MotorDirection::DIRECTION_FORWARD, 100);
+        LOG_ROS_INFO(this, "Turning left wheels to speed %f and right wheels to speed %f", robotSpeeds.left, robotSpeeds.right);
+
+        if (simulatedMode_)
+        {
+            return RESULT_OK;
+        }
+
+        // @todo -> real movements
+
         return RESULT_OK;
     }
-    // END TEST CODE
 
     Result stop()
     {
-        // TEMPORAL TEST CODE TO TEST MOTOR
-        LOG_ROS_INFO(this, "[TEST] Stop command");
+        LOG_ROS_INFO(this, "Stop command");
+        if (simulatedMode_)
+        {
+            return RESULT_OK;
+        }
         motorFL_->stopMotor();
+        motorFR_->stopMotor();
+        motorRL_->stopMotor();
+        motorRR_->stopMotor();
         return RESULT_OK;
-        // END TEST CODE
     }
 
     Result initializeMotors()
     {
         LOG_ROS_INFO(this, "Initializing motors");
-        std::thread t1FL(&DcMotor::initializeMotor, motorFL_);
+        motorFL_->initializeMotor();
+        rclcpp::sleep_for(std::chrono::milliseconds(2000));
+        motorFR_->initializeMotor();
+        rclcpp::sleep_for(std::chrono::milliseconds(2000));
+        motorRL_->initializeMotor();
+        rclcpp::sleep_for(std::chrono::milliseconds(2000));
+        motorRR_->initializeMotor();
+        //std::thread t1FL(&DcMotor::initializeMotor, motorFL_);
         //std::thread t1FR(&DcMotor::initializeMotor, motorFR_);
         //std::thread t1RL(&DcMotor::initializeMotor, motorRL_);
         //std::thread t1RR(&DcMotor::initializeMotor, motorRR_);
 
-        t1FL.join();
+        //t1FL.join();
         //t1FR.join();
         //t1RL.join();
         //t1RR.join();
         return RESULT_OK;
     }
 
+    void setSimulatedMode(bool simulated)
+    {
+        simulatedMode_ = simulated;
+    }
+
     rclcpp::Logger get_logger() const { return nodeLogger_; }
     const char* get_name() const { return nodeName_.c_str(); }
 
 private:
-    void getMotorParamsFromJoy(const JoyCoordinates& axis)
+    RobotMotorSpeeds getMotorParamsFromJoy(const JoyCoordinates& axis)
     {
-        (void)axis;
         // @todo -> limit speed in robot_control component
 
+        /*
+        x = -1 y = 0 -> left (circles)
+        x = 1 y = 0 -> right (circles)
+        x = 0 y = -1 -> reverse
+        x = 0 y = 1 -> forward
+        x = 1 y = 1 -> right turn
+        x = -1 y = 1 -> left turn
+        x = 1 y = -1 -> left turn reverse
+        x = -1 y = -1 -> right turn reverse
+        */
+
+        // Right now it's not expected as with keyboard only possible values
+        // are -1, 0 and 1 (see device_orchestrator.cpp), but for the future, 
+        // we might not want to apply small axis changes.
+        float x = (std::abs(axis.x - currentMovement_.x) > CHANGE_THRESHOLD) ? axis.x : currentMovement_.x;
+        float y = (std::abs(axis.y - currentMovement_.y) > CHANGE_THRESHOLD) ? axis.y : currentMovement_.y;
+
+        currentMovement_.x = x;
+        currentMovement_.y = y;
+
         // Assign speed to each motor
+        RobotMotorSpeeds robotSpeeds;
+        robotSpeeds.left = axis.y + axis.x/2.0;
+        robotSpeeds.right = axis.y - axis.x/2.0;
+        return robotSpeeds;
     }
 
 private:
@@ -89,27 +130,10 @@ private:
     DcMotor* motorRL_ = nullptr;
     DcMotor* motorRR_ = nullptr;
 
+    bool simulatedMode_ = false;
+
+    JoyCoordinates currentMovement_ = geometry_msgs::msg::Point32();
+
     rclcpp::Logger nodeLogger_;
     std::string nodeName_ = "RobotController";
 };
-
-/*
-EN1.A -> PWM PCA9685 CH2 (1)
-EN1.B -> PWM PCA9685 CH3 (2)
-EN2.A -> PWM PCA9685 CH4 (3)
-EN2.B -> PWM PCA9685 CH5 (4)
-
-IN1.1 -> GPIO17
-IN1.2 -> GPIO27
-IN1.3 -> GPIO6
-IN1.4 -> GPIO13
-IN2.1 -> GPIO21
-IN2.2 -> GPIO20
-IN2.3 -> GPIO10
-IN2.4 -> GPIO9
-
-ENC1.A -> GPIO24
-ENC1.B -> GPIO23
-ENC2.A -> GPIO26
-ENC2.B -> GPIO16
-*/

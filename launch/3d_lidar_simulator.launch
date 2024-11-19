@@ -9,6 +9,9 @@
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
   <arg name="processingType" default="0"/>
 
+  <!-- device_orchestrator-->
+  <arg name="robotSimulated" default="true"/>
+
   <!-- keyboard -->
   <arg name="allowRepeat" default="false"/>
   <arg name="repeatDelay" default="50"/>
@@ -37,7 +40,9 @@
   </node>
 
     <!-- device_orchestrator -->
-  <node pkg="lidar_pointcloud_scan" exec="device_orchestrator" name="device_orchestrator" output="screen"/>
+  <node pkg="lidar_pointcloud_scan" exec="device_orchestrator" name="device_orchestrator" output="screen">
+    <param name="robotSimulated" value="$(var robotSimulated)"/>
+  </node>
 
   <!-- keyboard -->
   <node pkg="keyboard" exec="keyboard" name="keyboard_node" output="screen">

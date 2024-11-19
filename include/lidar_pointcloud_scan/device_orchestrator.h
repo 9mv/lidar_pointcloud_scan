@@ -77,6 +77,7 @@ private:
 
     // Robot controller
     RobotController* robotController_ = nullptr;
+    bool robotSimulated_ = false;
 
     // Scan state attribute
     bool inScan_ = false;

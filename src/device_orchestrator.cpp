@@ -24,13 +24,29 @@ DeviceOrchestrator::DeviceOrchestrator()
         LOG_ROS_ERROR(this, "Failed to create robot controller");
         rclcpp::shutdown();
     }
-    
+
+    if (robotSimulated_)
+    {
+        robotController_->setSimulatedMode(true);
+    }
+    else
+    {
+        robotController_->initializeMotors();
+    }
 }
 
 void DeviceOrchestrator::initParameters ()
 {
-    // Empty for now.
     // @todo -> move some lidar_rotation_motor parameters here and pass them via MotorScan
+
+    LOG_ROS_INFO(this, "Initializing parameters");
+
+    // Declare parameters
+    this->declare_parameter<bool>("robotSimulated", false);
+    
+    // Get parameters
+    this->get_parameter<bool>("robotSimulated", robotSimulated_);
+    LOG_ROS_INFO(this, "robotSimulated: %s", robotSimulated_ ? "true" : "false");
     return;
 }
 
@@ -238,14 +254,28 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
         }
     }
 
+    /*
+    Notes on the current implementation of axis.
+
+    This node is subscribed to the "joy" topic. Currently, the only node that publishes 
+    joy messages is the keyboard to joy, meaning there is not real joy data, but messages
+    based in direction keys of a keyboard.
+
+    The values that each axis can have is: -1, 0 and 1.
+
+    The joyCallback gets called upon sets of keys changed (it's not periodic!). Example:
+
+        Pressing UP + DOWN. When releasing DOWN key, joyCallback gets called with refreshed set of keys pressed (UP).
+
+    @todo -> add publisher/implementation of real controller to publish joy messages
+    */
+
     JoyCoordinates axisInformation;
     axisInformation.x = (std::abs(msg->axes[0]) > AXIS_THRESHOLD) ? msg->axes[0] : 0;
     axisInformation.y = (std::abs(msg->axes[1]) > AXIS_THRESHOLD) ? msg->axes[1] : 0;
     LOG_ROS_INFO(this, "Axis x: %f, y: %f", axisInformation.x, axisInformation.y);
 
-
-    // @todo - not ready
-    //robotController_->move(axisInformation);
+    robotController_->move(axisInformation);
 }
 
 int main(int argc, char * argv[])

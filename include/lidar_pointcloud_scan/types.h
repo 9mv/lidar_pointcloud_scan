@@ -102,4 +102,10 @@ struct DcMotorParams
   int encoderGpio;
 };
 
+struct RobotMotorSpeeds
+{
+  float left;
+  float right;
+};
+
 #endif // LIDAR_POINTCLOUD_SCAN_TYPES_H
