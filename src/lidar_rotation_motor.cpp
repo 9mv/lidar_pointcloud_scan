@@ -7,7 +7,7 @@ LidarRotationMotor::LidarRotationMotor()
   initParameters();
 
   // Publishers
-  publisher_ = this->create_publisher<lidar_pointcloud_scan::msg::Angle>("tilt_angle", 10); // https://docs.ros2.org/galactic/api/std_msgs/index-msg.html
+  anglePublisher_ = this->create_publisher<lidar_pointcloud_scan::msg::Angle>("tilt_angle", 10); // https://docs.ros2.org/galactic/api/std_msgs/index-msg.html
 
   // Services
   transformerStateService_ = this->create_service<TransformerState>(
@@ -173,7 +173,7 @@ void LidarRotationMotor::timer_callback()
   auto message = lidar_pointcloud_scan::msg::Angle();
   message.angle = currentAngle_;
   updateAngle();
-  publisher_->publish(message);
+  anglePublisher_->publish(message);
 
   //@todo -> this function should not manage the real motor behavior -> maintain only for fake mode
 }

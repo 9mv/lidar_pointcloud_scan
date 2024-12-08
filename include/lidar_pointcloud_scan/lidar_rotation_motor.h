@@ -100,7 +100,7 @@ private:
     rclcpp::TimerBase::SharedPtr timer_;
 
     // Publishers
-    rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr publisher_;
+    rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr anglePublisher_;
 
     // Services
     rclcpp::Service<TransformerState>::SharedPtr transformerStateService_;
@@ -132,10 +132,6 @@ private:
 
     // State of the motor
     MotorState motorState_ = UNINITIALIZED;
-
-    // Corrections of PWM range
-    int minPwm_ = MIN_PWM_VALUE;
-    int maxPwm_ = MAX_PWM_VALUE;
 
     // Corrections of motor rotation angle range
     float minAngle_ = MIN_ANGLE;
