@@ -37,6 +37,7 @@ void PointCloudTransformer::initParameters ()
   this->declare_parameter<bool>("appendMode", false);
   this->declare_parameter<int>("processingType", 0);
   this->declare_parameter<int>("updateBuffer", 10);
+  this->declare_parameter<std::string>("pcdExportPath", "/tmp/PoinCloudExport.pcd");
 
   // Get parameters
   this->get_parameter<bool>("appendMode", appendMode_);
@@ -54,6 +55,9 @@ void PointCloudTransformer::initParameters ()
   this->get_parameter_or<int>("processingType", processingType, 0);
   processingType_ = static_cast<ProcessingType>(processingType);
   LOG_ROS_INFO(this, "processingType: %d", processingType_);
+
+  this->get_parameter<std::string>("pcdExportPath", pcdExportPath_);
+  LOG_ROS_INFO(this, "pcdExportPath: %s", pcdExportPath_.c_str());
 }
 
 void PointCloudTransformer::handleStartScan(
@@ -143,7 +147,7 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
   {
     // Publish remaining points
     publishPointCloud();
-    dumpScanToFile("");
+    dumpScanToFile();
 
     LOG_ROS_INFO(this, "Scan COMPLETE");
     
@@ -159,10 +163,30 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
   inScan_ = false;
 }
 
-Result PointCloudTransformer::dumpScanToFile(std::string filePath)
+Result PointCloudTransformer::dumpScanToFile()
 {
-  (void) filePath;
-  return RESULT_OK;
+  std::string outputPath = pcdExportPath_;
+  Result res = RESULT_OK;
+  if (outputPath.empty())
+  {
+    outputPath = "/tmp/output.pcd";
+  }
+
+  pcl::PointCloud<pcl::PointXYZ> pclPointCloud;
+  pcl::fromROSMsg(cumulativePointCloud_, pclPointCloud);
+
+  LOG_ROS_INFO(this, "Dumping point cloud to %s", outputPath.c_str());
+
+  if (pcl::io::savePCDFileASCII(outputPath, pclPointCloud) == 0) 
+  {
+    LOG_ROS_INFO(this, "PointCloud successfully saved to %s", outputPath.c_str());
+  } 
+  else
+  {
+    LOG_ROS_ERROR(this, "Failed to save PointCloud to %s", outputPath.c_str());
+    res = RESULT_ERROR;
+  }
+  return res;
 }
 
 void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::msg::Angle::SharedPtr msg)

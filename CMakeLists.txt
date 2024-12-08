@@ -13,6 +13,8 @@ find_package(action_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(PCL REQUIRED COMPONENTS io)
+find_package(pcl_conversions REQUIRED) 
 
 find_library(WIRINGPI_LIBRARIES NAMES wiringPi)
 
@@ -52,6 +54,7 @@ add_executable(point_cloud_transformer src/point_cloud_transformer.cpp)
 ament_target_dependencies(point_cloud_transformer 
   rclcpp
   sensor_msgs
+  pcl_conversions
   )
 
 add_executable(device_orchestrator src/device_orchestrator.cpp
@@ -76,7 +79,13 @@ install(TARGETS
   DESTINATION lib/${PROJECT_NAME}
 )
 
-include_directories(include)
+include_directories(
+  include
+  ${PCL_INCLUDE_DIRS}
+  )
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 target_include_directories(lidar_rotation_motor PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -102,6 +111,7 @@ target_link_libraries(lidar_rotation_motor
 
 target_link_libraries(point_cloud_transformer 
   "${cpp_typesupport_target}"
+  ${PCL_LIBRARIES}
 )
 
 target_link_libraries(device_orchestrator 

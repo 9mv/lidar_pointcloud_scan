@@ -21,6 +21,7 @@
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
   <arg name="processingType" default="0"/>
   <arg name="updateBuffer" default="50"/>
+  <arg name="pcdExportPath" default="/tmp/PointCloudExported.pcd"/>
   
   <!-- keyboard -->
   <arg name="allowRepeat" default="false"/>
@@ -29,7 +30,7 @@
 
   <!-- keyboard_to_joy -->
   <arg name="configFileName" default="$(find-pkg-share keyboard)/config/3d_lidar_config.yaml" description="Path to the keyboard to joy configuration file"/>
-  <arg name="samplingFrequency" default="50" description="Sampling frequency for the keyboard_to_joy node"/>
+  <arg name="samplingFrequency" default="100" description="Sampling frequency for the keyboard_to_joy node"/>
 
 
   <!-- NODE INITIALIZATION -->
@@ -62,6 +63,7 @@
     <param name="appendMode" value="$(var appendMode)"/>
     <param name="processingType" value="$(var processingType)"/>
     <param name="updateBuffer" value="$(var updateBuffer)"/>
+    <param name="pcdExportPath" value="$(var pcdExportPath)"/>
   </node>
 
     <!-- device_orchestrator -->

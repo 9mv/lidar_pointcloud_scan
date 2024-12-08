@@ -10,9 +10,11 @@
 #include "sensor_msgs/point_cloud2_iterator.hpp"
 #include <math.h>
 #include "lidar_pointcloud_scan/types.h"
+#include <pcl/io/pcd_io.h>
+#include <pcl_conversions/pcl_conversions.h>
 
-#define RAD2DEG(x) ((x)*180./M_PI)
-#define DEG2RAD(x) ((x)*M_PI/180.)
+//#define RAD2DEG(x) ((x)*180./M_PI)
+//#define DEG2RAD(x) ((x)*M_PI/180.)
 
 using PointCloud2 = sensor_msgs::msg::PointCloud2;
 using TransformerState = lidar_pointcloud_scan::srv::TransformerState;
@@ -69,11 +71,10 @@ private:
     void stopScan (EndScanReason reason);
 
     /*
-    * Dump the current scan to a point cloud file.
-    * @param filePath: path to the file where the scan will be saved.
+    * Dump the current scan to a point cloud file specified by pcdExportPath_.
     * @return: RESULT_OK if the file is saved successfully, RESULT_ERROR otherwise.
     */
-    Result dumpScanToFile(std::string filePath);
+    Result dumpScanToFile();
 
     // Transformer state service
     /*
@@ -125,4 +126,7 @@ private:
 
   // Internal readiness state
   PointCloudTransformerState state_ = TRANSFORMER_NOT_READY;
+
+  // Path for the exported PCD file
+  std::string pcdExportPath_ = "";
 };
