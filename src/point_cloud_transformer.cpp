@@ -165,25 +165,55 @@ void PointCloudTransformer::stopScan (EndScanReason reason)
 
 Result PointCloudTransformer::dumpScanToFile()
 {
-  std::string outputPath = pcdExportPath_;
+  std::string outputPathStr = pcdExportPath_;
   Result res = RESULT_OK;
-  if (outputPath.empty())
+  if (outputPathStr.empty())
   {
-    outputPath = "/tmp/output.pcd";
+    outputPathStr = "/tmp/";
   }
+
+  rcpputils::fs::path outputPath(outputPathStr);
+  if (!rcpputils::fs::exists(outputPath))
+  {
+    try 
+    {
+      rcpputils::fs::create_directories(outputPath);
+      LOG_ROS_INFO(this, "Created directory for the PointCloud export file: %s", outputPath.string().c_str());
+    }
+    catch (const std::exception& e)
+    {
+      LOG_ROS_ERROR(this, "Failed to create directory for the PointCloud export file: %s", outputPath.string().c_str());
+      return RESULT_ERROR;
+    }
+  }
+
+  auto now = std::chrono::system_clock::now();
+  auto timeNow = std::chrono::system_clock::to_time_t(now);
+  std::tm time = *std::localtime(&timeNow);
+
+  char timeInFile[15];
+  std::strftime(timeInFile, sizeof(timeInFile), "%Y%m%d%H%M%S", &time);
+
+  rcpputils::fs::path fullOutputPath = outputPath / ("PointCloudExport_" + std::string(timeInFile) + ".pcd");
 
   pcl::PointCloud<pcl::PointXYZ> pclPointCloud;
   pcl::fromROSMsg(cumulativePointCloud_, pclPointCloud);
 
-  LOG_ROS_INFO(this, "Dumping point cloud to %s", outputPath.c_str());
+  size_t numPoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
+  LOG_ROS_INFO(this, "Dumping point cloud with %d points", numPoints);
 
-  if (pcl::io::savePCDFileASCII(outputPath, pclPointCloud) == 0) 
+  LOG_ROS_INFO(this, "Generated point cloud contains %zu points (width: %zu, height: %zu)", 
+             pclPointCloud.points.size(), 
+             pclPointCloud.width, 
+             pclPointCloud.height);
+
+  if (pcl::io::savePCDFileASCII(fullOutputPath.string(), pclPointCloud) == 0) 
   {
-    LOG_ROS_INFO(this, "PointCloud successfully saved to %s", outputPath.c_str());
+    LOG_ROS_INFO(this, "PointCloud successfully saved to %s", fullOutputPath.string().c_str());
   } 
   else
   {
-    LOG_ROS_ERROR(this, "Failed to save PointCloud to %s", outputPath.c_str());
+    LOG_ROS_ERROR(this, "Failed to save PointCloud to %s", fullOutputPath.string().c_str());
     res = RESULT_ERROR;
   }
   return res;

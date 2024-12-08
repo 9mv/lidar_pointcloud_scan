@@ -13,7 +13,7 @@
   <arg name="incrementPeriod" default="65.5"/>
   <arg name="angleIncrement" default="0.25"/>
   <arg name="motorFakeMode" default="false"/>
-  <arg name="pwmFrequency" default="150"/>
+  <arg name="pwmFrequency" default="50"/>
   <arg name="angleRange" default="180.0"/>
   <arg name="sweepsPerScan" default="1"/>
 
@@ -21,7 +21,7 @@
   <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
   <arg name="processingType" default="0"/>
   <arg name="updateBuffer" default="50"/>
-  <arg name="pcdExportPath" default="/tmp/PointCloudExported.pcd"/>
+  <arg name="pcdExportPath" default="/tmp/"/>
   
   <!-- keyboard -->
   <arg name="allowRepeat" default="false"/>
