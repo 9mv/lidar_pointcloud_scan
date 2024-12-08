@@ -82,6 +82,10 @@ private:
     // Scan state attribute
     bool inScan_ = false;
 
+    // Flag to keep track of robot state
+    bool robotMoving_ = false;
+    bool robotInitialized_ = false;
+
     // Keep track of the goal request to avoid multiple requests
     bool motorScanGoalRequested_ = false;
 };

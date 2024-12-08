@@ -12,8 +12,8 @@ constexpr float CHANGE_THRESHOLD = 0.1f;
 constexpr std::array<DcMotorParams, NUM_MOTORS> motorConfigs = 
 {{
     //  FORWARD GPIO        REVERSE GPIO    PWM CHANNEL     HAS_ENCODER/ENCODER GPIO (-1 if not, for clarity)
-    {17,                    27,             2,              false, 24},    // FRONT_LEFT
-    {6,                     13,             3,              false, 23},    // FRONT_RIGHT
+    {6,                     13,             3,              false, 23},    // FRONT_LEFT
+    {17,                    27,             2,              false, 24},    // FRONT_RIGHT
     {21,                    20,             4,              false, 26},    // BACK_LEFT
     {10,                    9,              5,              false, 16}     // BACK_RIGHT
 }};
@@ -27,6 +27,19 @@ public:
         motorFR_ = new DcMotor(motorConfigs[MOTOR_FRONT_RIGHT], "WheelMotorFrontRight", nodeLogger_);
         motorRL_ = new DcMotor(motorConfigs[MOTOR_REAR_LEFT], "WheelMotorRearLeft", nodeLogger_);
         motorRR_ = new DcMotor(motorConfigs[MOTOR_REAR_RIGHT], "WheelMotorRearRight", nodeLogger_);
+
+        // Get shared PCA9685 instance to set motor speed parameters
+        std::shared_ptr<PCA9685> pwmController = PCA9685Manager::getInstance();
+        if (pwmController == nullptr)
+        {
+            LOG_ROS_ERROR(this, "Failed to get PWM controller");
+            assert(0);
+        }
+        int freq = pwmController->getPWMFreq();
+        motorFL_->setPulseWidths(freq);
+        motorFR_->setPulseWidths(freq);
+        motorRL_->setPulseWidths(freq);
+        motorRR_->setPulseWidths(freq);
     }
 
 	~RobotController()
@@ -42,8 +55,15 @@ public:
         {
             return RESULT_OK;
         }
+        
+        // Get DcMotor max speed costant and give it a margin
+        int8_t maxSpeed = DcMotor::MAX_SPEED * 0.8;
 
-        // @todo -> real movements
+        // Move motors with unnormalized speeds
+        motorFL_->moveMotor(maxSpeed * robotSpeeds.left);
+        motorFR_->moveMotor(maxSpeed * robotSpeeds.right);
+        motorRL_->moveMotor(maxSpeed * robotSpeeds.left);
+        motorRR_->moveMotor(maxSpeed * robotSpeeds.right);
 
         return RESULT_OK;
     }

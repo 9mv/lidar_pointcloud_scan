@@ -31,7 +31,17 @@ DeviceOrchestrator::DeviceOrchestrator()
     }
     else
     {
-        robotController_->initializeMotors();
+        Result res = robotController_->initializeMotors();
+        if (res == RESULT_OK)
+        {
+            LOG_ROS_INFO(this, "Motors initialized successfully");
+            robotInitialized_ = true;
+        }
+        else
+        {
+            LOG_ROS_ERROR(this, "Failed to initialize motors");
+            rclcpp::shutdown();
+        }
     }
 }
 
@@ -267,7 +277,7 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
 
         Pressing UP + DOWN. When releasing DOWN key, joyCallback gets called with refreshed set of keys pressed (UP).
 
-    @todo -> add publisher/implementation of real controller to publish joy messages
+    @todo -> add publisher/implementation of real controller to publish joy messages from another source
     */
 
     JoyCoordinates axisInformation;
@@ -275,7 +285,16 @@ void DeviceOrchestrator::joyCallback(const sensor_msgs::msg::Joy::SharedPtr msg)
     axisInformation.y = (std::abs(msg->axes[1]) > AXIS_THRESHOLD) ? msg->axes[1] : 0;
     LOG_ROS_INFO(this, "Axis x: %f, y: %f", axisInformation.x, axisInformation.y);
 
-    robotController_->move(axisInformation);
+    if (robotInitialized_ && (axisInformation.x != 0 || axisInformation.y != 0) && !inScan_)
+    {
+        robotController_->move(axisInformation);
+        robotMoving_ = true;
+    }
+    else if (robotInitialized_ && axisInformation.x == 0 && axisInformation.y == 0 && robotMoving_ )
+    {
+        robotController_->stop();
+        robotMoving_ = false;
+    }
 }
 
 int main(int argc, char * argv[])

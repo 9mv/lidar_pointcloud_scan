@@ -31,6 +31,8 @@ public:
 
     static constexpr double MAX_SPEED = 255.0;
     static constexpr int PCA9685_PWM_MAX = 4096;
+    static constexpr double MIN_PULSE_WIDTH = 0.15; // 5% period width
+    static constexpr double MAX_PULSE_WIDTH = 0.9; // 90% period width
 
     DcMotor(DcMotorParams motorParams, std::string motorInstanceName, rclcpp::Logger logger)
         : IMotor(motorInstanceName, logger), speedPwmChannel_(motorParams.speedPwmChannel), forwardGpio_(motorParams.forwardGpio), reverseGpio_(motorParams.reverseGpio)
@@ -57,7 +59,6 @@ public:
             //wiringPiISR(motorParams.encoderGpio, INT_EDGE_RISING, &DcMotor::encoderCallback);
             
         }
-
     }
 
     virtual ~DcMotor() override
@@ -79,7 +80,7 @@ public:
             return RESULT_OK;
         }
         // Get PWM for the desired speed: speed = 0 -> min Pwm / speed = 255 -> max Pwm
-        uint32_t controllerSpeed = std::round(PCA9685_PWM_MAX * (speed / MAX_SPEED));
+        uint32_t controllerSpeed = std::round(minPwm_ + (maxPwm_ - minPwm_) * (speed / MAX_SPEED));
         if (extendedROSLogging_)
         {
             LOG_ROS_INFO(this, "Moving motor: direction %d, speed %d, controllerSpeed %d", direction, speed, controllerSpeed);
@@ -103,7 +104,7 @@ public:
 
     Result moveMotor(float speed) override
     {
-        (void)speed;
+        moveMotor((speed >= 0) ? MotorDirection::DIRECTION_FORWARD : MotorDirection::DIRECTION_REVERSE, std::abs(speed));
         return RESULT_OK;
     }
 
@@ -122,30 +123,65 @@ public:
         moveMotor(MotorDirection::DIRECTION_REVERSE, 0);
         rclcpp::sleep_for(std::chrono::milliseconds(200));
 
-        moveMotor(MotorDirection::DIRECTION_FORWARD, MAX_SPEED/2);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        int8_t speed = 0;
+        LOG_ROS_INFO(this, "Test forward direction");
+        while (speed < 254 && speed >= 0)       // Overflow might overflow and get negative
+        {
+            LOG_ROS_INFO(this, "forward speed %d", speed);
+            moveMotor(MotorDirection::DIRECTION_FORWARD, speed);
+            // @todo -> check encoder?
+            rclcpp::sleep_for(std::chrono::milliseconds(200));
+            speed += 40;
+        }
 
-        moveMotor(MotorDirection::DIRECTION_FORWARD, MAX_SPEED);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        stopMotor();
+        rclcpp::sleep_for(std::chrono::milliseconds(100));
+        
+        speed = 0;
+        LOG_ROS_INFO(this, "Test reverse direction");
+        while (speed < 254 && speed >= 0)       // Overflow might overflow and get negative
+        {
+            LOG_ROS_INFO(this, "reverse speed %d", speed);
+            moveMotor(MotorDirection::DIRECTION_REVERSE, speed);
+            // @todo -> check encoder?
+            rclcpp::sleep_for(std::chrono::milliseconds(200));
+            speed += 40;
+        }
+        stopMotor();
+        rclcpp::sleep_for(std::chrono::milliseconds(100));
+       return RESULT_OK;
+    }
 
-        moveMotor(MotorDirection::DIRECTION_FORWARD, 0);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
+    PwmRange getPwmRange()
+    {
+        // Calculate PWM values for minimum and maximum pulse widths
+        int freq = pwmController_->getPWMFreq();
+        LOG_ROS_INFO(this, "PWM Frequency %d", freq);
+        int minValue = std::round(freq * minPulseWidth_ * RESOLUTION_PCA9685);
+        int maxValue = std::round(freq * maxPulseWidth_ * RESOLUTION_PCA9685);
 
-        moveMotor(MotorDirection::DIRECTION_REVERSE, MAX_SPEED/2);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        // Ensure values are within the valid range (0-4095)
+        minValue = std::max(0, std::min(RESOLUTION_PCA9685 - 1, minValue));
+        maxValue = std::max(0, std::min(RESOLUTION_PCA9685 - 1, maxValue));
 
-        moveMotor(MotorDirection::DIRECTION_REVERSE, MAX_SPEED);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
+        LOG_ROS_INFO(this, "PWM range: %d - %d", minValue, maxValue);
 
-        moveMotor(MotorDirection::DIRECTION_REVERSE, 0);
-        // @todo -> check encoder?
-        rclcpp::sleep_for(std::chrono::milliseconds(200));
-        return RESULT_OK;
+        return {minValue, maxValue};
+    }
+
+    float getMinPulseWidth() {return minPulseWidth_;}
+    float getMaxPulseWidth() {return maxPulseWidth_;}
+
+    void setPulseWidths(int controllerPWMFreq)
+    {
+        minPulseWidth_ = (1.0/controllerPWMFreq)*MIN_PULSE_WIDTH;
+        maxPulseWidth_ = (1.0/controllerPWMFreq)*MAX_PULSE_WIDTH;
+        LOG_ROS_INFO(this, "PWM frequency: %u Hz, minPulseWidth: %f ms, maxPulseWidth: %f ms", controllerPWMFreq, minPulseWidth_, maxPulseWidth_);
+
+        // Update PWM range
+        PwmRange range = getPwmRange();
+        minPwm_ = range.min;
+        maxPwm_ = range.max;
     }
 
 private:
@@ -155,6 +191,12 @@ private:
     int forwardGpio_;
     int reverseGpio_;
 
+    int minPwm_ = 0;
+    int maxPwm_ = 0;
+
+    float minPulseWidth_ = MIN_PULSE_WIDTH;
+    float maxPulseWidth_ = MAX_PULSE_WIDTH;
+
     bool extendedROSLogging_ = false;
 };
 
@@ -162,8 +204,8 @@ private:
 class ServoMotor : public IMotor
 {
 public:
-    static constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
-    static constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
+    static constexpr double MIN_PULSE_WIDTH = 0.0005; // 0.5ms, minimum servo pulse width
+    static constexpr double MAX_PULSE_WIDTH = 0.0025; // 2.5ms, maximum servo pulse width
 
     ServoMotor(ServoMotorParams servoMotorParams, std::string nodeName, rclcpp::Logger logger)
         : IMotor(nodeName, logger)
