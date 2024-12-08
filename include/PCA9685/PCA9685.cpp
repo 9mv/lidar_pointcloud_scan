@@ -51,7 +51,7 @@ PCA9685::~PCA9685() {
 }
 //! Sets PCA9685 mode to 00
 void PCA9685::reset() {
-
+		std::lock_guard<std::mutex> lock(mutex_);
 		i2c->write_byte(MODE1, 0x00); //Normal mode
 		i2c->write_byte(MODE2, 0x04); //totem pole
 
@@ -63,6 +63,7 @@ void PCA9685::reset() {
 void PCA9685::setPWMFreq(int freq) {
 
 		uint8_t prescale_val = (CLOCK_FREQ / RESOLUTION_PCA9685 / freq)  - 1;
+		std::lock_guard<std::mutex> lock(mutex_);
 		i2c->write_byte(MODE1, 0x10); //sleep
 		i2c->write_byte(PRE_SCALE, prescale_val); // multiplyer for PWM frequency
 		i2c->write_byte(MODE1, 0x80); //restart
@@ -74,6 +75,7 @@ void PCA9685::setPWMFreq(int freq) {
  \return frequency of PWM in Hz
  */
 int PCA9685::getPWMFreq() {
+	std::lock_guard<std::mutex> lock(mutex_);
 	i2c->write_byte(MODE1, 0x10); //sleep
 	int prescale_val = i2c->read_byte(PRE_SCALE);
 	i2c->write_byte(MODE1, 0x80); //restart
@@ -96,6 +98,7 @@ void PCA9685::setPWM(uint8_t led, int value) {
  \param off_value 0-4095 value to turn off the pulse
  */
 void PCA9685::setPWM(uint8_t led, int on_value, int off_value) {
+		std::lock_guard<std::mutex> lock(mutex_);
 		i2c->write_byte(LED0_ON_L + LED_MULTIPLYER * (led - 1), on_value & 0xFF);
 		i2c->write_byte(LED0_ON_H + LED_MULTIPLYER * (led - 1), on_value >> 8);
 		i2c->write_byte(LED0_OFF_L + LED_MULTIPLYER * (led - 1), off_value & 0xFF);
@@ -108,6 +111,7 @@ void PCA9685::setPWM(uint8_t led, int on_value, int off_value) {
  */
 int PCA9685::getPWM(uint8_t led){
 	int ledval = 0;
+	std::lock_guard<std::mutex> lock(mutex_);
 	ledval = i2c->read_byte(LED0_OFF_H + LED_MULTIPLYER * (led-1));
 	ledval = ledval & 0xf;
 	ledval <<= 8;

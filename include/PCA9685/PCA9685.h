@@ -25,6 +25,7 @@
 #define _PCA9685_H
 #include <inttypes.h>
 #include "I2C/I2C.h"
+#include <mutex>
 // Register Definitions
 
 #define MODE1 0x00			//Mode  register  1
@@ -61,6 +62,7 @@ public:
 private:
 	I2C *i2c;
 	void reset(void);
+	std::mutex mutex_; 
 };
 #endif
 
