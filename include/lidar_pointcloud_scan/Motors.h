@@ -1,3 +1,5 @@
+#ifndef LIDAR_POINTCLOUD_SCAN_MOTORS_H
+#define LIDAR_POINTCLOUD_SCAN_MOTORS_H
 #include <memory>
 #include "PCA9685/PCA9685Manager.h"
 #include "lidar_pointcloud_scan/types.h"
@@ -351,3 +353,4 @@ private:
 
     bool extendedROSLogging_ = false;
 };
+#endif // LIDAR_POINTCLOUD_SCAN_MOTORS_H
