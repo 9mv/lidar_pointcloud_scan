@@ -12,6 +12,7 @@ find_package(rclcpp_action REQUIRED)
 find_package(action_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(visualization_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 find_package(PCL REQUIRED COMPONENTS io)
 find_package(pcl_conversions REQUIRED) 
@@ -55,6 +56,7 @@ ament_target_dependencies(point_cloud_transformer
   rclcpp
   sensor_msgs
   pcl_conversions
+  visualization_msgs
   )
 
 add_executable(device_orchestrator src/device_orchestrator.cpp

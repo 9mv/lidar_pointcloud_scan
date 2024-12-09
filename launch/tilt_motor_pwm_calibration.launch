@@ -2,8 +2,6 @@
   <!-- DEFINITION OF ARGUMENTS -->
 
   <!-- lidar_rotation_motor -->
-  <!--arg name="incrementPeriod" default="62.5"/-->
-  <arg name="incrementPeriod" default="62.5"/>
   <arg name="angleIncrement" default="2.0"/>
   <arg name="motorFakeMode" default="false"/>
   <arg name="calibrationMode" default="true"/>
@@ -12,7 +10,6 @@
 
   <!-- lidar_rotation_motor -->
   <node pkg="lidar_pointcloud_scan" exec="lidar_rotation_motor" name="lidar_rotation_motor" output="screen">
-    <param name="incrementPeriod" value="$(var incrementPeriod)"/>
     <param name="angleIncrement" value="$(var angleIncrement)"/>
     <param name="motorFakeMode" value="$(var motorFakeMode)"/>
     <param name="calibrationMode" value="$(var calibrationMode)"/>

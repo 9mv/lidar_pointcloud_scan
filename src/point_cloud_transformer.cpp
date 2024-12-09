@@ -16,6 +16,8 @@ PointCloudTransformer::PointCloudTransformer()
 
   pointCloudPublisher_ = this->create_publisher<PointCloud2>("scan_3d", 10);
 
+  deletePointsPublisher_ = this->create_publisher<visualization_msgs::msg::Marker>("visualization_marker", 10);
+
   // Services
   startScanService_ = this->create_service<lidar_pointcloud_scan::srv::StartScan>(
     "start_scan_transformer",
@@ -37,7 +39,8 @@ void PointCloudTransformer::initParameters ()
   this->declare_parameter<bool>("appendMode", false);
   this->declare_parameter<int>("processingType", 0);
   this->declare_parameter<int>("updateBuffer", 10);
-  this->declare_parameter<std::string>("pcdExportPath", "/tmp/PoinCloudExport.pcd");
+  this->declare_parameter<int>("samplesPerAngle", 3);
+  this->declare_parameter<std::string>("pcdExportPath", "/tmp/");
 
   // Get parameters
   this->get_parameter<bool>("appendMode", appendMode_);
@@ -55,6 +58,14 @@ void PointCloudTransformer::initParameters ()
   this->get_parameter_or<int>("processingType", processingType, 0);
   processingType_ = static_cast<ProcessingType>(processingType);
   LOG_ROS_INFO(this, "processingType: %d", processingType_);
+
+  this->get_parameter_or<int>("samplesPerAngle", samplesPerAngle_, 3);
+  if (samplesPerAngle_ < 1)
+  {
+    samplesPerAngle_ = 1;
+  }
+  LOG_ROS_INFO(this, "samplesPerAngle: %d", samplesPerAngle_);
+
 
   this->get_parameter<std::string>("pcdExportPath", pcdExportPath_);
   LOG_ROS_INFO(this, "pcdExportPath: %s", pcdExportPath_.c_str());
@@ -82,8 +93,16 @@ void PointCloudTransformer::handleStartScan(
 
   // @todo -> eliminate current pointCloud data
   reset_ = true;
+  firstLaserScan_ = true;
   currentBuffer_ = 0;
   inScan_ = true;
+
+  // Delete points in RViz2
+  visualization_msgs::msg::Marker deletePointsMarker;
+  deletePointsMarker.action = visualization_msgs::msg::Marker::DELETEALL;
+  deletePointsMarker.header.frame_id = "laser";
+  deletePointsMarker.header.stamp = this->now();
+  deletePointsPublisher_ -> publish(deletePointsMarker);
 }
 
 Result PointCloudTransformer::notifyTransformerState ()
@@ -100,7 +119,11 @@ Result PointCloudTransformer::notifyTransformerState ()
     auto request = std::make_shared<TransformerState::Request>();
     request->state = static_cast<int8_t>(state_);
 
-    LOG_ROS_INFO(this, "Notifying transformer state %d", static_cast<uint32_t>(state_));
+    // Avoid unnecessary scan notififications logs
+    if (state_ == TRANSFORMER_READY || state_ == TRANSFORMER_NOT_READY)
+    {
+        LOG_ROS_INFO(this, "Notifying transformer state %d", static_cast<uint32_t>(state_));
+    }
     auto future = transformerStateClient_->async_send_request(
         request, 
         std::bind(&PointCloudTransformer::notifyTransformerStateCallback, this, std::placeholders::_1)
@@ -200,9 +223,9 @@ Result PointCloudTransformer::dumpScanToFile()
   pcl::fromROSMsg(cumulativePointCloud_, pclPointCloud);
 
   size_t numPoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
-  LOG_ROS_INFO(this, "Dumping point cloud with %d points", numPoints);
+  LOG_ROS_INFO(this, "Dumping point cloud with %ld points", numPoints);
 
-  LOG_ROS_INFO(this, "Generated point cloud contains %zu points (width: %zu, height: %zu)", 
+  LOG_ROS_INFO(this, "Generated point cloud contains %lu points (width: %u, height: %u)", 
              pclPointCloud.points.size(), 
              pclPointCloud.width, 
              pclPointCloud.height);
@@ -224,6 +247,9 @@ void PointCloudTransformer::angleUpdateCallback (const lidar_pointcloud_scan::ms
   if (inScan_)
   {
     currentAngle_ = msg->angle;
+    currentSamplesPerAngle_ = 0;
+    state_ = TRANSFORMER_WAIT_FOR_SCAN;
+    notifyTransformerState();
   }
 }
 
@@ -241,11 +267,18 @@ void PointCloudTransformer::lidarScanCallback (const sensor_msgs::msg::LaserScan
   {
     updatePointCloud(scan);
   }
+
+  if (currentSamplesPerAngle_ == samplesPerAngle_ && (state_ == TRANSFORMER_READY || state_ == TRANSFORMER_WAIT_FOR_SCAN))
+  {
+    //LOG_ROS_INFO(this, "Requesting new angle to servo");
+    state_ = TRANSFORMER_REQUEST_NEW_ANGLE;
+    notifyTransformerState();
+  }
 }
 
 void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan)
 {
-  if (state_ != TRANSFORMER_READY)
+  if (state_ != TRANSFORMER_READY && state_ != TRANSFORMER_WAIT_FOR_SCAN) // If state_ == TRANSFORMER_REQUEST_NEW_ANGLE there might be servo movement causing distortion. Discard.
   {
     return;
   }
@@ -312,70 +345,80 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
 
   if (inScan_)
   {
-    if (!reset_ && appendMode_)
+
+    size_t numPoints = partialPointCloud_.width * partialPointCloud_.height;
+    LOG_ROS_INFO(this, "Partial point cloud has %ld points", numPoints);
+
+    if (!reset_)
     {
+      LOG_ROS_INFO(this, "Appending point cloud data. Current buffer: %d", currentBuffer_);
       // Append pointCloud2 to cumulativePointCloud_
-      appendToCumulativePointCloud(pointCloud2);
+      appendToPointCloud(pointCloud2, partialPointCloud_);
       currentBuffer_++;
     }
     else
     {
-      //LOG_ROS_INFO(this, "Overriding current PointCloud2");
-      cumulativePointCloud_ = pointCloud2;
+      if (firstLaserScan_)
+      {
+        cumulativePointCloud_ = pointCloud2;
+        firstLaserScan_ = false;
+      }
+      partialPointCloud_ = pointCloud2;
       reset_ = false;
     }
 
-    if (appendMode_ && static_cast<int>(currentBuffer_) == updateBuffer_)
+    if (static_cast<int>(currentBuffer_) >= updateBuffer_)
     {
       LOG_ROS_INFO(this, "Publishing point cloud data.");
       publishPointCloud();
       currentBuffer_ = 0;
     }
+    currentSamplesPerAngle_++;
   }
 }
 
-void PointCloudTransformer::appendToCumulativePointCloud(const PointCloud2& pointCloud2)
+void PointCloudTransformer::appendToPointCloud(const PointCloud2& pointCloud2, PointCloud2& appendedPointCloud)
 {
   //LOG_ROS_INFO(this, "Appending to existing PointCloud2");
 
-  if (cumulativePointCloud_.width == 0 || cumulativePointCloud_.height == 0)
+  if (appendedPointCloud.width == 0 || appendedPointCloud.height == 0)
   {
-    cumulativePointCloud_ = pointCloud2;
+    appendedPointCloud = pointCloud2;
     return;
   }
 
-  if (pointCloud2.point_step != cumulativePointCloud_.point_step)
+  if (pointCloud2.point_step != appendedPointCloud.point_step)
   {
     return;
   }
 
   // Update widths of PC2
-  size_t oldWidth = cumulativePointCloud_.width;
+  size_t oldWidth = appendedPointCloud.width;
   uint32_t newWidth = oldWidth + pointCloud2.width;
 
-  size_t cumulativePoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
+  size_t cumulativePoints = appendedPointCloud.width * appendedPointCloud.height;
   //size_t appendPoints = pointCloud2.width * pointCloud2.height;
 
-  cumulativePointCloud_.data.resize(cumulativePointCloud_.data.size() + pointCloud2.data.size());
+  appendedPointCloud.data.resize(appendedPointCloud.data.size() + pointCloud2.data.size());
 
-  std::copy(pointCloud2.data.begin(), pointCloud2.data.end(), cumulativePointCloud_.data.begin() + cumulativePointCloud_.point_step * cumulativePoints);
+  std::copy(pointCloud2.data.begin(), pointCloud2.data.end(), appendedPointCloud.data.begin() + appendedPointCloud.point_step * cumulativePoints);
 
-  sensor_msgs::PointCloud2Modifier pclModifier(cumulativePointCloud_);
+  sensor_msgs::PointCloud2Modifier pclModifier(appendedPointCloud);
   pclModifier.resize(newWidth);
 
-    // If the point clouds are unorganized (height = 1), keep height as 1
-  if (cumulativePointCloud_.height == 1 && pointCloud2.height == 1)
+  // If the point clouds are unorganized (height = 1), keep height as 1
+  if (appendedPointCloud.height == 1 && pointCloud2.height == 1)
   {
-    cumulativePointCloud_.height = 1;
+    appendedPointCloud.height = 1;
   }
   else
   {
     // If the point clouds are organized, sum their heights and ensure correct width
-    cumulativePointCloud_.height += pointCloud2.height;
+    appendedPointCloud.height += pointCloud2.height;
   }
 
   // Optionally, update the timestamp of the target cloud to the latest one
-  cumulativePointCloud_.header.stamp = pointCloud2.header.stamp;
+  appendedPointCloud.header.stamp = pointCloud2.header.stamp;
 
 }
 
@@ -383,8 +426,22 @@ Result PointCloudTransformer::publishPointCloud()
 {
   Result result = RESULT_OK;
   //LOG_ROS_INFO(this, "Publishing new pointCloud");
-  pointCloudPublisher_->publish(cumulativePointCloud_);
 
+  appendToPointCloud(partialPointCloud_, cumulativePointCloud_);
+
+  if (appendMode_)
+  {
+    size_t numPoints = cumulativePointCloud_.width * cumulativePointCloud_.height;
+    LOG_ROS_INFO(this, "Publishing point cloud of %ld points", numPoints);
+    pointCloudPublisher_->publish(cumulativePointCloud_);
+  }
+  else
+  {
+    size_t numPoints = partialPointCloud_.width * partialPointCloud_.height;
+    LOG_ROS_INFO(this, "Publishing partial point cloud of %ld points", numPoints);
+    pointCloudPublisher_->publish(partialPointCloud_);
+  }
+  reset_ = true;
   return result;
 }
 

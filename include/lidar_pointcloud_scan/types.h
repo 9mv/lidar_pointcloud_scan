@@ -54,7 +54,9 @@ enum MotorDirection
 enum PointCloudTransformerState
 {
   TRANSFORMER_NOT_READY,
-  TRANSFORMER_READY
+  TRANSFORMER_READY,
+  TRANSFORMER_WAIT_FOR_SCAN,
+  TRANSFORMER_REQUEST_NEW_ANGLE
 };
 
 enum MotorIdentification

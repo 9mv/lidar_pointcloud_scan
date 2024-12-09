@@ -10,7 +10,6 @@
   <arg name="scan_mode" default="Sensitivity" description="Specifying scan mode of lidar"/>
 
   <!-- lidar_rotation_motor -->
-  <arg name="incrementPeriod" default="65.5"/>
   <arg name="angleIncrement" default="0.25"/>
   <arg name="motorFakeMode" default="false"/>
   <arg name="pwmFrequency" default="50"/>
@@ -18,9 +17,10 @@
   <arg name="sweepsPerScan" default="1"/>
 
   <!-- point_cloud_transformer -->
-  <arg name="appendMode" default="true" description="Append mode of PointCloud2 in point_cloud_transformer"/>
+  <arg name="appendMode" default="false" description="Append mode of PointCloud2 in point_cloud_transformer. Otherwise it sends buffers of updateBuffer PointClouds2."/>
   <arg name="processingType" default="0"/>
   <arg name="updateBuffer" default="50"/>
+  <arg name="samplesPerAngle" default="2"/>
   <arg name="pcdExportPath" default="/tmp/"/>
   
   <!-- keyboard -->
@@ -50,7 +50,6 @@
 
   <!-- lidar_rotation_motor -->
   <node pkg="lidar_pointcloud_scan" exec="lidar_rotation_motor" name="lidar_rotation_motor" output="screen">
-    <param name="incrementPeriod" value="$(var incrementPeriod)"/>
     <param name="angleIncrement" value="$(var angleIncrement)"/>
     <param name="motorFakeMode" value="$(var motorFakeMode)"/>
     <param name="pwmFrequency" value="$(var pwmFrequency)"/>
@@ -63,6 +62,7 @@
     <param name="appendMode" value="$(var appendMode)"/>
     <param name="processingType" value="$(var processingType)"/>
     <param name="updateBuffer" value="$(var updateBuffer)"/>
+    <param name="samplesPerAngle" value="$(var samplesPerAngle)"/>
     <param name="pcdExportPath" value="$(var pcdExportPath)"/>
   </node>
 

@@ -26,7 +26,6 @@ LidarRotationMotor::LidarRotationMotor()
     return;
   }
 
-  timer_ = this->create_wall_timer(std::chrono::milliseconds(static_cast<int>(incrementPeriod_)), std::bind(&LidarRotationMotor::timer_callback, this));
 }
 
 LidarRotationMotor::~LidarRotationMotor()
@@ -45,7 +44,6 @@ void LidarRotationMotor::initParameters ()
   // Declare parameters
   this->declare_parameter<bool>("motorFakeMode", false);
   this->declare_parameter<float>("angleIncrement", 0.0);
-  this->declare_parameter<float>("incrementPeriod", 0.0);
   this->declare_parameter<bool>("calibrationMode", false);
   this->declare_parameter<int>("pwmFrequency", 150);
   this->declare_parameter<float>("angleRange", ANGLE_RANGE);
@@ -57,9 +55,6 @@ void LidarRotationMotor::initParameters ()
 
   this->get_parameter_or<float>("angleIncrement", angleIncrement_, 1.0);
   LOG_ROS_INFO(this, "angleIncrement: %f", angleIncrement_);
-
-  this->get_parameter_or<float>("incrementPeriod", incrementPeriod_, 1);
-  LOG_ROS_INFO(this, "incrementPeriod: %f ms", incrementPeriod_);
 
   this->get_parameter<bool>("calibrationMode", calibrationMode_);
   LOG_ROS_INFO(this, "calibrationMode: %s", calibrationMode_ ? "true" : "false");
@@ -128,15 +123,21 @@ void LidarRotationMotor::scanFeedBackProvider(const std::shared_ptr<GoalHandleMo
   auto result = std::make_shared<MotorScan::Result>();
   
   // Iterate at FEEDBACK_PROVIDER_LOOP_RATE Hz until motor has finished (inScan_ == false)
-  while (inScan_ && rclcpp::ok()) {
+  while (inScan_ && rclcpp::ok())
+  {
     // Check if there is a cancel request
-    if (goalHandle->is_canceling()) {
+    if (goalHandle->is_canceling()) 
+    {
       result->end_result = static_cast<int8_t>(EndScanReason::CANCEL);
       goalHandle->canceled(result);
       RCLCPP_INFO(this->get_logger(), "Goal canceled");
       endOfScanActions(EndScanReason::CANCEL);
       return;
     }
+
+    // Update angle and move servo
+    updateAngleActions();
+  
     // Publish feedback
     // @todo -> check if some kind of useful feedback can be sent to the orchestrator
     feedback->angle = currentAngle_;
@@ -146,7 +147,8 @@ void LidarRotationMotor::scanFeedBackProvider(const std::shared_ptr<GoalHandleMo
   }
 
   // Send the goal result after exiting thread loop
-  if (rclcpp::ok()) {
+  if (rclcpp::ok()) 
+  {
     result->end_result = static_cast<int8_t>(EndScanReason::END);
     goalHandle->succeed(result);
     RCLCPP_INFO(this->get_logger(), "Goal succeeded");
@@ -158,18 +160,20 @@ void LidarRotationMotor::handleTransformerState(const std::shared_ptr<Transforme
 {
   transformerState_ = static_cast<PointCloudTransformerState>(request->state);
 
-  LOG_ROS_INFO(this, "New transformer state: %d", transformerState_);
+  //LOG_ROS_INFO(this, "New transformer state: %d", transformerState_);
 
   // @todo -> configure the response
   response->success = true;
 }
 
-void LidarRotationMotor::timer_callback()
+void LidarRotationMotor::updateAngleActions()
 {
-  if (motorState_ == MotorState::UNINITIALIZED || !inScan_ || transformerState_ != PointCloudTransformerState::TRANSFORMER_READY)
+  if (motorState_ == MotorState::UNINITIALIZED || !inScan_ 
+      || (!motorFakeMode_ && (transformerState_ == PointCloudTransformerState::TRANSFORMER_NOT_READY || transformerState_ == PointCloudTransformerState::TRANSFORMER_WAIT_FOR_SCAN)))
   {
     return;
   }
+
   auto message = lidar_pointcloud_scan::msg::Angle();
   message.angle = currentAngle_;
   updateAngle();
@@ -221,6 +225,11 @@ void LidarRotationMotor::updateAngle()
   if (!motorFakeMode_)
   {
     motor_->moveMotor(currentAngle_);
+
+    // Wait for the motor to move
+    int expectedMoveTimeMs = static_cast<int>(std::ceil((ROTATION_SERVO_MIN_SPEED/60.0) * 1000.0 * angleIncrement_) * (1 + MOVE_WAIT_MARGIN));
+    //LOG_ROS_INFO(this, "New angle: %f and expected wait time of %d ms", currentAngle_, expectedMoveTimeMs);
+    rclcpp::sleep_for(std::chrono::milliseconds(static_cast<int>(expectedMoveTimeMs)));
   }
 }
 

@@ -8,6 +8,7 @@
 #include "lidar_pointcloud_scan/srv/transformer_state.hpp"
 #include "sensor_msgs/msg/point_cloud2.hpp"
 #include "sensor_msgs/point_cloud2_iterator.hpp"
+#include <visualization_msgs/msg/marker.hpp>
 #include <math.h>
 #include "lidar_pointcloud_scan/types.h"
 #include <pcl/io/pcd_io.h>
@@ -35,7 +36,7 @@ private:
     * Point Cloud processing
     */ 
     void updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan);
-    void appendToCumulativePointCloud(const PointCloud2 & pointCloud);
+    void appendToPointCloud(const PointCloud2 & pointCloud, PointCloud2& appendedPointCloud);
     Result publishPointCloud();
 
     /*
@@ -93,6 +94,7 @@ private:
 
   // Publishers
   rclcpp::Publisher<PointCloud2>::SharedPtr pointCloudPublisher_;
+  rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr deletePointsPublisher_;
 
   // Services
   rclcpp::Client<TransformerState>::SharedPtr transformerStateClient_;
@@ -102,8 +104,11 @@ private:
   // set to true while there is a scan in process
   bool inScan_ = false;
 
-  // If reset is true, the point cloud is reseted
+  // If reset is true, the buffered point cloud is reset
   bool reset_ = false;
+
+  // Attribute to mark first LaserScan of a scanning process
+  bool firstLaserScan_ = true;
 
   // Current angle of the lidar
   float currentAngle_ = -90.0;
@@ -114,14 +119,21 @@ private:
 
   // PointCloud publish buffer of scans
   int updateBuffer_ = 50;
-  
+
+  // Keep track of samples taken in current angle
+  int samplesPerAngle_ = 3;
+  int currentSamplesPerAngle_ = 0;
+
   // Current buffer number of scans
   uint32_t currentBuffer_ = 0;
 
   // Publish LaserScan or PointCloud events
   ProcessingType processingType_ = LASER_SCAN_PROCESSING;
 
-  // Point cloud
+  // Point Cloud buffer
+  PointCloud2 partialPointCloud_;
+
+  // Total Point Cloud
   PointCloud2 cumulativePointCloud_;
 
   // Internal readiness state

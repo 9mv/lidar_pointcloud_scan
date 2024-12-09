@@ -34,6 +34,9 @@ constexpr uint8_t SERVO_MOTOR_CHANNEL = 1;
 constexpr double MIN_PULSE_WIDTH = 0.0005; // 1ms, minimum servo pulse width
 constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
 
+constexpr double ROTATION_SERVO_MIN_SPEED = 0.17;   // In seconds/60º
+constexpr double MOVE_WAIT_MARGIN = 0.3;   // Percentage of expected move time
+
 class LidarRotationMotor : public rclcpp::Node
 {
 public:
@@ -68,9 +71,9 @@ private:
     Result initializeMotor();
 
     /*
-    * Timer callback to publish the angle
+    * Function to do update angle actions and movement
     */
-    void timer_callback();
+    void updateAngleActions();
 
     /*
     * Update the angle of the motor
@@ -97,7 +100,6 @@ private:
 
 // Private attributes
 private: 
-    rclcpp::TimerBase::SharedPtr timer_;
 
     // Publishers
     rclcpp::Publisher<lidar_pointcloud_scan::msg::Angle>::SharedPtr anglePublisher_;
@@ -123,9 +125,6 @@ private:
     
     // Increment of the angle of the LiDAR tilt motor
     float angleIncrement_ = 1;
-
-    // Angle increment period in ms
-    float incrementPeriod_ = 250.0;
 
     // Low Level motor
     ServoMotor* motor_ = nullptr;
