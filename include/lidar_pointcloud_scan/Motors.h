@@ -125,12 +125,12 @@ public:
 
         int8_t speed = 0;
         LOG_ROS_INFO(this, "Test forward direction");
-        while (speed < 254 && speed >= 0)       // Overflow might overflow and get negative
+        while (speed < 254 && speed >= 0)       // Might overflow and get negative
         {
             LOG_ROS_INFO(this, "forward speed %d", speed);
             moveMotor(MotorDirection::DIRECTION_FORWARD, speed);
             // @todo -> check encoder?
-            rclcpp::sleep_for(std::chrono::milliseconds(200));
+            rclcpp::sleep_for(std::chrono::milliseconds(50));
             speed += 40;
         }
 
@@ -139,12 +139,12 @@ public:
         
         speed = 0;
         LOG_ROS_INFO(this, "Test reverse direction");
-        while (speed < 254 && speed >= 0)       // Overflow might overflow and get negative
+        while (speed < 254 && speed >= 0)       // Might overflow and get negative
         {
             LOG_ROS_INFO(this, "reverse speed %d", speed);
             moveMotor(MotorDirection::DIRECTION_REVERSE, speed);
             // @todo -> check encoder?
-            rclcpp::sleep_for(std::chrono::milliseconds(200));
+            rclcpp::sleep_for(std::chrono::milliseconds(50));
             speed += 40;
         }
         stopMotor();
