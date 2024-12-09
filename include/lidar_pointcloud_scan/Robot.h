@@ -57,7 +57,7 @@ public:
         }
         
         // Get DcMotor max speed costant and give it a margin
-        int8_t maxSpeed = DcMotor::MAX_SPEED * 0.8;
+        int8_t maxSpeed = static_cast<int8_t>(DcMotor::MAX_SPEED * 0.8);
 
         // Move motors with unnormalized speeds
         motorFL_->moveMotor(maxSpeed * robotSpeeds.left);
