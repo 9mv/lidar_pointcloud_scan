@@ -220,7 +220,17 @@ void LidarRotationMotor::updateAngle()
   }
 
   // Update angle and direction
-  currentAngle_ = direction_==DIRECTION_FORWARD ? currentAngle_+angleIncrement_ : currentAngle_-angleIncrement_;
+  int8_t angleSign = direction_==DIRECTION_FORWARD ? 1 : -1;
+
+  currentAngle_ = currentAngle_ + angleSign*angleIncrement_;
+  if (currentAngle_ > maxAngle_)
+  {
+    currentAngle_ = maxAngle_;
+  }
+  else if (currentAngle_ < minAngle_)
+  {
+    currentAngle_ = minAngle_;
+  }
 
   if (!motorFakeMode_)
   {
