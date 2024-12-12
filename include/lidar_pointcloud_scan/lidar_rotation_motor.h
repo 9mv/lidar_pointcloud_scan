@@ -36,6 +36,7 @@ constexpr double MAX_PULSE_WIDTH = 0.0025; // 2ms, maximum servo pulse width
 
 constexpr double ROTATION_SERVO_MIN_SPEED = 0.17;   // In seconds/60º
 constexpr double MOVE_WAIT_MARGIN = 0.3;   // Percentage of expected move time
+constexpr double MOVE_WAIT_BASE_MS = 10.0;   // Base time to wait for the motor to move
 
 class LidarRotationMotor : public rclcpp::Node
 {

@@ -237,7 +237,7 @@ void LidarRotationMotor::updateAngle()
     motor_->moveMotor(currentAngle_);
 
     // Wait for the motor to move
-    int expectedMoveTimeMs = static_cast<int>(std::ceil((ROTATION_SERVO_MIN_SPEED/60.0) * 1000.0 * angleIncrement_) * (1 + MOVE_WAIT_MARGIN));
+    int expectedMoveTimeMs = static_cast<int>(MOVE_WAIT_BASE_MS + 30.0+ std::ceil((ROTATION_SERVO_MIN_SPEED/60.0) * 1000.0 * angleIncrement_) * (1 + MOVE_WAIT_MARGIN));
     //LOG_ROS_INFO(this, "New angle: %f and expected wait time of %d ms", currentAngle_, expectedMoveTimeMs);
     rclcpp::sleep_for(std::chrono::milliseconds(static_cast<int>(expectedMoveTimeMs)));
   }
