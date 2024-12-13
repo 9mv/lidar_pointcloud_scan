@@ -21,6 +21,9 @@
   <arg name="processingType" default="0"/>
   <arg name="updateBuffer" default="50"/>
   <arg name="samplesPerAngle" default="2"/>
+  <arg name="xAdjust" default="00.00"/>
+  <arg name="yAdjust" default="00.00"/>
+  <arg name="zAdjust" default="00.00"/>
   <arg name="pcdExportPath" default="/tmp/"/>
   
   <!-- keyboard -->
@@ -63,10 +66,13 @@
     <param name="processingType" value="$(var processingType)"/>
     <param name="updateBuffer" value="$(var updateBuffer)"/>
     <param name="samplesPerAngle" value="$(var samplesPerAngle)"/>
+    <param name="xAdjust" value="$(var xAdjust)"/>
+    <param name="yAdjust" value="$(var yAdjust)"/>
+    <param name="zAdjust" value="$(var zAdjust)"/>
     <param name="pcdExportPath" value="$(var pcdExportPath)"/>
   </node>
 
-    <!-- device_orchestrator -->
+  <!-- device_orchestrator -->
   <node pkg="lidar_pointcloud_scan" exec="device_orchestrator" name="device_orchestrator" output="screen"/>
 
   <!-- keyboard -->

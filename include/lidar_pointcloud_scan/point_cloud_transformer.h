@@ -36,6 +36,7 @@ private:
     * Point Cloud processing
     */ 
     void updatePointCloud(const sensor_msgs::msg::LaserScan::SharedPtr lidar_scan);
+    void applyAngularCalibration(float& x, float& y, float& z);
     void appendToPointCloud(const PointCloud2 & pointCloud, PointCloud2& appendedPointCloud);
     Result publishPointCloud();
 
@@ -123,6 +124,11 @@ private:
   // Keep track of samples taken in current angle
   int samplesPerAngle_ = 3;
   int currentSamplesPerAngle_ = 0;
+
+  // Calibration values for the point cloud generation
+  float xAdjust_ = 0.0;
+  float yAdjust_ = 0.0;
+  float zAdjust_ = 0.0;
 
   // Current buffer number of scans
   uint32_t currentBuffer_ = 0;

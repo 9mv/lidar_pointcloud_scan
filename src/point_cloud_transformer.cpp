@@ -40,6 +40,9 @@ void PointCloudTransformer::initParameters ()
   this->declare_parameter<int>("processingType", 0);
   this->declare_parameter<int>("updateBuffer", 10);
   this->declare_parameter<int>("samplesPerAngle", 3);
+  this->declare_parameter<float>("xAdjust", 0.0);
+  this->declare_parameter<float>("yAdjust", 0.0);
+  this->declare_parameter<float>("zAdjust", 0.0);
   this->declare_parameter<std::string>("pcdExportPath", "/tmp/");
 
   // Get parameters
@@ -59,13 +62,17 @@ void PointCloudTransformer::initParameters ()
   processingType_ = static_cast<ProcessingType>(processingType);
   LOG_ROS_INFO(this, "processingType: %d", processingType_);
 
-  this->get_parameter_or<int>("samplesPerAngle", samplesPerAngle_, 3);
+  this->get_parameter_or<int>("samplesPerAngle", samplesPerAngle_, 2);
   if (samplesPerAngle_ < 1)
   {
     samplesPerAngle_ = 1;
   }
   LOG_ROS_INFO(this, "samplesPerAngle: %d", samplesPerAngle_);
 
+  this->get_parameter_or<float>("xAdjust", xAdjust_, 0.0);
+  this->get_parameter_or<float>("yAdjust", yAdjust_, 0.0);
+  this->get_parameter_or<float>("zAdjust", zAdjust_, 0.0);
+  LOG_ROS_INFO(this, "Angular adjustments: x: %f, y: %f, z: %f", xAdjust_, yAdjust_, zAdjust_);
 
   this->get_parameter<std::string>("pcdExportPath", pcdExportPath_);
   LOG_ROS_INFO(this, "pcdExportPath: %s", pcdExportPath_.c_str());
@@ -305,6 +312,9 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
       
       float adjusted_y = y * std::cos(motorAngleInRad);
       float z = y * std::sin(motorAngleInRad);
+
+      applyAngularCalibration(x, adjusted_y, z);
+
       PointCloudPoint point;
       point.x = x;
       point.y = adjusted_y;
@@ -375,6 +385,32 @@ void PointCloudTransformer::updatePointCloud(const sensor_msgs::msg::LaserScan::
     }
     currentSamplesPerAngle_++;
   }
+}
+
+void PointCloudTransformer::applyAngularCalibration(float& x, float& y, float& z)
+{
+    // Convert adjustments from degrees to radians
+    float xRad = DEG2RAD(xAdjust_);
+    float yRad = DEG2RAD(yAdjust_);
+    float zRad = DEG2RAD(zAdjust_);
+
+    float xOriginal = x, yOriginal = y, zOriginal = z;
+
+    // Apply Z axis rotation
+    x = xOriginal * std::cos(zRad) - yOriginal * std::sin(zRad);
+    y = xOriginal * std::sin(zRad) + yOriginal * std::cos(zRad);
+
+    xOriginal = x; yOriginal = y;
+
+    // Apply Y axis rotation
+    x = xOriginal * std::cos(yRad) + zOriginal * std::sin(yRad);
+    z = -xOriginal * std::sin(yRad) + zOriginal * std::cos(yRad);
+
+    yOriginal = y; zOriginal = z;
+
+    // Apply X axis rotation
+    y = yOriginal * std::cos(xRad) - zOriginal * std::sin(xRad);
+    z = yOriginal * std::sin(xRad) + zOriginal * std::cos(xRad);
 }
 
 void PointCloudTransformer::appendToPointCloud(const PointCloud2& pointCloud2, PointCloud2& appendedPointCloud)
