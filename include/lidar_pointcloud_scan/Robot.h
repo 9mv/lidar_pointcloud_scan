@@ -57,7 +57,10 @@ public:
         }
         
         // Get DcMotor max speed costant and give it a margin
-        int8_t maxSpeed = static_cast<int8_t>(DcMotor::MAX_SPEED * 0.8);
+        uint16_t maxSpeed = static_cast<uint16_t>(DcMotor::MAX_SPEED);
+
+        //LOG_ROS_INFO(this, "Max speed is %d", maxSpeed);
+        //LOG_ROS_INFO(this, "Moving motors at speed LEFT %f, RIGHT %f", robotSpeeds.left, robotSpeeds.right);
 
         // Move motors with unnormalized speeds
         motorFL_->moveMotor(maxSpeed * robotSpeeds.left);
@@ -139,8 +142,15 @@ private:
 
         // Assign speed to each motor
         RobotMotorSpeeds robotSpeeds;
-        robotSpeeds.left = axis.y + axis.x/2.0;
-        robotSpeeds.right = axis.y - axis.x/2.0;
+        robotSpeeds.left = axis.y + axis.x/1.25;
+        robotSpeeds.right = axis.y - axis.x/1.25;
+
+        // Normalize speeds
+        float maxSpeed = std::max(std::abs(robotSpeeds.left), std::abs(robotSpeeds.right));
+        if (maxSpeed > 1.0) {
+            robotSpeeds.left /= maxSpeed;
+            robotSpeeds.right /= maxSpeed;
+        }
         return robotSpeeds;
     }
 

@@ -74,7 +74,7 @@ public:
     //}
     
 
-    Result moveMotor(MotorDirection direction, uint8_t speed)
+    Result moveMotor(MotorDirection direction, uint16_t speed)
     {
         if (speed == 0)
         {
@@ -125,7 +125,7 @@ public:
         moveMotor(MotorDirection::DIRECTION_REVERSE, 0);
         rclcpp::sleep_for(std::chrono::milliseconds(200));
 
-        int8_t speed = 0;
+        int16_t speed = 0;
         LOG_ROS_INFO(this, "Test forward direction");
         while (speed < 254 && speed >= 0)       // Might overflow and get negative
         {
